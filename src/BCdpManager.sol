@@ -1,24 +1,18 @@
 pragma solidity ^0.5.12;
 
 import { LibNote } from "dss/lib.sol";
+import {DSAuth} from "ds-auth/auth.sol";
 import {DssCdpManager} from "./DssCdpManager.sol";
 import "./LiquidationMachine.sol";
-import {BCdpScore} from "./BCdpScore.sol";
+import {BCdpScoreConnector, BCdpScoreLike} from "./BCdpScoreConnector.sol";
 
-contract BCdpManager is DssCdpManager, BCdpScore, LiquidationMachine {
-    constructor(address vat_, address cat_, address pool_, address real_) public
+contract BCdpManager is DssCdpManager, BCdpScoreConnector, LiquidationMachine, DSAuth {
+    constructor(address vat_, address end_, address pool_, address real_, address score_) public
         DssCdpManager(vat_)
-        LiquidationMachine(this,VatLike(vat_),CatLike(cat_),pool_,PriceFeedLike(real_))
+        LiquidationMachine(this,VatLike(vat_),EndLike(end_),pool_,PriceFeedLike(real_))
+        BCdpScoreConnector(BCdpScoreLike(score_))
     {
 
-    }
-
-    function add(uint x, uint y) internal pure returns (uint z) {
-        require((z = x + y) >= x);
-    }
-
-    function sub(uint x, uint y) internal pure returns (uint z) {
-        require((z = x - y) <= x);
     }
 
     // Open a new cdp for a given usr address.
@@ -48,7 +42,7 @@ contract BCdpManager is DssCdpManager, BCdpScore, LiquidationMachine {
         untop(cdp);
         updateScore(cdp,ilk,dink,dart,now);
 
-        super.frob(cdp,dink,dart);        
+        super.frob(cdp,dink,dart);
     }
 
     // Transfer wad amount of cdp collateral from the cdp address to a dst address.
@@ -130,8 +124,15 @@ contract BCdpManager is DssCdpManager, BCdpScore, LiquidationMachine {
         super.shift(cdpSrc,cdpDst);
     }
 
+    ///////////////// B specific control functions /////////////////////////////
+
     function quitB(uint cdp) note external cdpAllowed(cdp) {
-        //quitBScore(cdp);
+        quitScore(cdp);
         quitBLiquidation(cdp);
+    }
+
+    function setBParams(address pool, BCdpScoreLike score) external auth {
+        setPool(pool);
+        setScoreContract(score);
     }
 }

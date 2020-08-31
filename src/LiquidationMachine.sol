@@ -2,7 +2,8 @@ pragma solidity ^0.5.12;
 
 import { LibNote } from "dss/lib.sol";
 import {DssCdpManager} from "./DssCdpManager.sol";
-import {BCdpScore} from "./BCdpScore.sol";
+import {BCdpScoreConnector} from "./BCdpScoreConnector.sol";
+import {Math} from "./Math.sol";
 
 contract VatLike {
     function urns(bytes32 ilk, address u) public view returns (uint ink, uint art);
@@ -15,13 +16,17 @@ contract CatLike {
     function ilks(bytes32) public returns(address flip, uint256 chop, uint256 lump);
 }
 
+contract EndLike {
+    function cat() public view returns(CatLike);
+}
+
 contract PriceFeedLike {
     function read(bytes32 ilk) external view returns(bytes32);
 }
 
-contract LiquidationMachine is LibNote, BCdpScore {
+contract LiquidationMachine is LibNote, BCdpScoreConnector, Math {
     VatLike                   public vat;
-    CatLike                   public cat;
+    EndLike                   public end;
     DssCdpManager             public man;
     address                   public pool;
     PriceFeedLike             public real;
@@ -38,12 +43,16 @@ contract LiquidationMachine is LibNote, BCdpScore {
         _;
     }
 
-    constructor(DssCdpManager man_,VatLike vat_, CatLike cat_, address pool_, PriceFeedLike real_) public {
+    constructor(DssCdpManager man_,VatLike vat_, EndLike end_, address pool_, PriceFeedLike real_) public {
         man = man_;
         vat = vat_;
-        cat = cat_;
+        end = end_;
         pool = pool_;
         real = real_;
+    }
+
+    function setPool(address newPool) internal {
+        pool = newPool;
     }
 
     function quitBLiquidation(uint cdp) internal {
@@ -104,7 +113,7 @@ contract LiquidationMachine is LibNote, BCdpScore {
     }
 
     function calcDink(uint dart, uint rate, bytes32 ilk) internal returns(uint dink) {
-        (,uint chop,) = cat.ilks(ilk);
+        (,uint chop,) = end.cat().ilks(ilk);
         uint tab = rmul(mul(dart, rate), chop);
         bytes32 realtimePrice = real.read(ilk);
 
