@@ -125,7 +125,7 @@ contract VatDeployer {
         man.frob(cdpUnsafeNext,1 ether, 98 ether);
 
         cdpCustom = man.open("ETH-A", address(this));
-        vat.flux("ETH-A",address(this),man.urns(cdpUnsafeNext),1e7 * 1 ether);
+        vat.flux("ETH-A",address(this),man.urns(cdpCustom),1e7 * 1 ether);
         man.frob(cdpCustom,ink, art);
 
         pipETH.poke(bytes32(uint(149 ether)));
@@ -183,8 +183,8 @@ contract DeploymentTest is BCdpManagerTestBase {
 
         deployer = new VatDeployer();
 
-        deployer.poke(1 ether, 2 ether);
-        deployer.poke(2 ether, 3 ether);
+        deployer.poke(1 ether, 20 ether);
+        deployer.poke(2 ether, 30 ether);
 
         assert(deployer.vat().gem("ETH-A",address(this)) >= 1e18 * 1e6);
         assertEq(deployer.vat().live(),1);
@@ -196,7 +196,7 @@ contract DeploymentTest is BCdpManagerTestBase {
         address urn = deployer.man().urns(cdp3);
         (uint ink, uint art) = deployer.vat().urns("ETH-A",urn);
         assertEq(ink,2 ether);
-        assertEq(art,3 ether);
+        assertEq(art,30 ether);
 
         int dartX;
         (dartX,,) = deployer.pool().topAmount(cdp1);
