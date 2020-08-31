@@ -27,6 +27,12 @@ contract FakeEnd {
     }
 }
 
+contract FakeScore {
+    function updateScore(uint cdp, bytes32 ilk, int dink, int dart, uint time) external {
+
+    }
+}
+
 contract VatDeployer {
     Vat public vat;
     Spotter public spotter;
@@ -77,9 +83,9 @@ contract VatDeployer {
         spotter.poke("ETH-A");
 
         pool = new Pool(address(vat),address(0x12345678),address(spotter));
-        score = new BCdpScore();
+        score = BCdpScore(address(new FakeScore())); //new BCdpScore();
         man = new BCdpManager(address(vat), address(end), address(pool), address(pipETH),address(score));
-        score.setManager(address(man));
+        //score.setManager(address(man));
         pool.setCdpManager(man);
         pool.setOsm("ETH-A",address(osm));
         address[] memory members = new address[](2);
