@@ -46,6 +46,7 @@ contract VatDeployer {
 
     uint public cdpUnsafe;
     uint public cdpUnsafeNext;
+    uint public cdpCustom;
 
     constructor() public {
         vat = new Vat();
@@ -98,7 +99,7 @@ contract VatDeployer {
         pool.setOwner(msg.sender);
     }
 
-    function poke() public {
+    function poke(int ink, int art) public {
         member.doHope(vat,address(pool));
 
         pipETH.poke(bytes32(uint(300 * 10 ** 18))); // Price 300 DAI = 1 ETH (precision 18)
@@ -122,6 +123,10 @@ contract VatDeployer {
         cdpUnsafeNext = man.open("ETH-A", address(this));
         vat.flux("ETH-A",address(this),man.urns(cdpUnsafeNext),1e7 * 1 ether);
         man.frob(cdpUnsafeNext,1 ether, 98 ether);
+
+        cdpCustom = man.open("ETH-A", address(this));
+        vat.flux("ETH-A",address(this),man.urns(cdpUnsafeNext),1e7 * 1 ether);
+        man.frob(cdpCustom,ink, art);
 
         pipETH.poke(bytes32(uint(149 ether)));
         osm.setPrice(uint(146 ether));
@@ -178,14 +183,20 @@ contract DeploymentTest is BCdpManagerTestBase {
 
         deployer = new VatDeployer();
 
-        deployer.poke();
-        deployer.poke();
+        deployer.poke(1 ether, 2 ether);
+        deployer.poke(2 ether, 3 ether);
 
         assert(deployer.vat().gem("ETH-A",address(this)) >= 1e18 * 1e6);
         assertEq(deployer.vat().live(),1);
 
         uint cdp1 = deployer.cdpUnsafe();
         uint cdp2 = deployer.cdpUnsafeNext();
+        uint cdp3 = deployer.cdpCustom();
+
+        address urn = deployer.man().urns(cdp3);
+        (uint ink, uint art) = deployer.vat().urns("ETH-A",urn);
+        assertEq(ink,2 ether);
+        assertEq(art,3 ether);
 
         int dartX;
         (dartX,,) = deployer.pool().topAmount(cdp1);
@@ -206,30 +217,6 @@ contract DeploymentTest is BCdpManagerTestBase {
         assertEq(v.gem("ETH-A",address(m)),712885906040268456);
 
         m.doTopup(p,cdp2);
-
-        return;
-        //FakeUser user = deployer.user;
-
-        deployer.vat().hope(address(deployer.man));
-        uint cdp = deployer.man().open("ETH-A", address(this));
-        assertEq(cdp,2);
-
-        address urn = deployer.man().urns(cdp);
-        deployer.vat().flux("ETH-A",address(this),deployer.man().urns(cdp),20e18);
-        assertEq(deployer.vat().gem("ETH-A",urn)  ,20e18);
-        deployer.man().frob(cdp, int(20e18), int(21e18));
-
-        (uint ink, uint art) = deployer.vat().urns("ETH-A",urn);
-        assertEq(ink,20e18);
-        assertEq(art,21e18);
-
-        int dart;
-        (dart,,) = deployer.pool().topAmount(cdp);
-        assertEq(dart,7);
-        deployer.osm().setPrice(200 * 10 ** 18);
-        (dart,,) = deployer.pool().topAmount(cdp);
-        assertEq(dart,7);
-        //assertEq(address(deployer.vat),address(0x123));
     }
 
     function openCdp(uint ink,uint art) internal returns(uint){
