@@ -14,15 +14,29 @@ contract PriceFeed is DSValue {
     }
 }
 
+contract FakeCat {
+    function ilks(bytes32 ilk) external pure returns(uint,uint,uint) {
+        return (0,1130000000000000000000000000,0);
+    }
+}
+
+contract FakeEnd {
+    FakeCat public cat;
+    constructor() public {
+        cat = new FakeCat();
+    }
+}
+
 contract VatDeployer {
     Vat public vat;
     Spotter public spotter;
     PriceFeed public pipETH;
-    Cat public cat;
+    FakeEnd public end;
     BCdpManager public man;
     Pool public pool;
     FakeOSM public osm;
     FakeMember public member;
+    BCdpScore public score;
 
     uint public cdpUnsafe;
     uint public cdpUnsafeNext;
@@ -48,9 +62,9 @@ contract VatDeployer {
 
         vat.rely(address(spotter));
 
-        cat = new Cat(address(vat));
+        end = new FakeEnd();
         //cat.rely(msg.sender);
-        cat.file("ETH-A","chop",1130000000000000000000000000);
+        //cat.file("ETH-A","chop",1130000000000000000000000000);
 
         // set VAT cfg
         vat.init("ETH-A");
@@ -63,7 +77,9 @@ contract VatDeployer {
         spotter.poke("ETH-A");
 
         pool = new Pool(address(vat),address(0x12345678),address(spotter));
-        man = new BCdpManager(address(vat), address(cat), address(pool), address(pipETH));
+        score = new BCdpScore();
+        man = new BCdpManager(address(vat), address(end), address(pool), address(pipETH),address(score));
+        score.setManager(address(man));
         pool.setCdpManager(man);
         pool.setOsm("ETH-A",address(osm));
         address[] memory members = new address[](2);
@@ -71,6 +87,8 @@ contract VatDeployer {
         members[0] = address(member);
         members[1] = 0xf214dDE57f32F3F34492Ba3148641693058D4A9e;
         pool.setMembers(members);
+        pool.setIlk("ETH-A",true);
+        pool.setProfitParams(6, 100);
         pool.setOwner(msg.sender);
     }
 
@@ -169,8 +187,6 @@ contract DeploymentTest is BCdpManagerTestBase {
         (dartX,,) = deployer.pool().topAmount(cdp2);
         assert(dartX > 0);
 
-
-
         FakeMember m = deployer.member();
         Pool p = deployer.pool();
         Vat v = deployer.vat();
@@ -181,7 +197,7 @@ contract DeploymentTest is BCdpManagerTestBase {
         m.doTopup(p,cdp1);
         m.doBite(p,cdp1,100 ether,0);
 
-        assertEq(v.gem("ETH-A",address(m)),750805369127516778);
+        assertEq(v.gem("ETH-A",address(m)),712885906040268456);
 
         m.doTopup(p,cdp2);
 
