@@ -140,6 +140,7 @@ contract DeploymentTest is BCdpManagerTestBase {
     FakeMember member;
     FakeMember[] members;
     FakeMember nonMember;
+    uint constant ONE = 1e18;
     address constant JAR = address(0x1234567890);
 
     VatDeployer deployer;
@@ -222,7 +223,7 @@ contract DeploymentTest is BCdpManagerTestBase {
     function openCdp(uint ink,uint art) internal returns(uint){
         uint cdp = manager.open("ETH", address(this));
 
-        weth.deposit.value(ink)();
+        weth.mint(ink);
         weth.approve(address(ethJoin), ink);
         ethJoin.join(manager.urns(cdp), ink);
 

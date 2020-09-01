@@ -29,6 +29,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
 
     LiquidationMachine lm;
     FakePool           fPool;
+    uint constant ONE = 1e18;
 
     function setUp() public {
         super.setUp();
@@ -84,7 +85,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
     function openCdp(uint ink,uint art) internal returns(uint){
         uint cdp = manager.open("ETH", address(this));
 
-        weth.deposit.value(ink)();
+        weth.mint(ink);
         weth.approve(address(ethJoin), ink);
         ethJoin.join(manager.urns(cdp), ink);
 

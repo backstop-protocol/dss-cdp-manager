@@ -156,6 +156,7 @@ contract BCdpManagerTestBase is DssDeployTestBase {
     Hevm hevm;
     FakeOSM osm;
     uint currTime;
+    uint constant ONE = 1e18;
 
     function setUp() public {
         super.setUp();
@@ -191,14 +192,14 @@ contract BCdpManagerTestBase is DssDeployTestBase {
         (uint ink, uint artPre) = vat.urns("ETH", urn);
 
         if(artPre == 0) {
-            weth.deposit.value(1 ether)();
+            weth.mint(1 ether);
             weth.approve(address(ethJoin), 1 ether);
             ethJoin.join(manager.urns(cdp), 1 ether);
             manager.frob(cdp, 1 ether, 50 ether);
         }
 
         uint liquidatorCdp = manager.open("ETH", address(this));
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(manager.urns(liquidatorCdp), 1 ether);
         manager.frob(liquidatorCdp, 1 ether, 51 ether);
@@ -289,7 +290,7 @@ contract BCdpManagerTestBase is DssDeployTestBase {
 contract BCdpManagerTest is BCdpManagerTestBase {
     function testFrobAndTopup() public {
         uint cdp = manager.open("ETH", address(this));
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(manager.urns(cdp), 1 ether);
         manager.frob(cdp, 1 ether, 50 ether);
@@ -585,7 +586,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
 
     function testFrob(bool withTopup, bool withBite) internal {
         uint cdp = manager.open("ETH", address(this));
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(manager.urns(cdp), 1 ether);
 
@@ -614,7 +615,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
 
     function testFrobRepayFullDebtWithCushion() public {
         uint cdp = manager.open("ETH", address(this));
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(manager.urns(cdp), 1 ether);
 
@@ -630,7 +631,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
 
     function testFrobAllowed() public {
         uint cdp = manager.open("ETH", address(this));
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(manager.urns(cdp), 1 ether);
         manager.cdpAllow(cdp, address(user), 1);
@@ -640,7 +641,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
 
     function testFailFrobNotAllowed() public {
         uint cdp = manager.open("ETH", address(this));
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(manager.urns(cdp), 1 ether);
         user.doFrob(manager, cdp, 1 ether, 50 ether);
@@ -660,7 +661,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
 
     function testFrobGetCollateralBack(bool withTopup, bool withBite) internal {
         uint cdp = manager.open("ETH", address(this));
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(manager.urns(cdp), 1 ether);
         manager.frob(cdp, 1 ether, 50 ether);
@@ -677,7 +678,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
         assertEq(vat.gem("ETH", address(this)), 1 ether);
         uint prevBalance = address(this).balance;
         ethJoin.exit(address(this), 1 ether);
-        weth.withdraw(1 ether);
+        //weth.withdraw(1 ether);
         assertEq(address(this).balance, prevBalance + 1 ether);
     }
 
@@ -723,7 +724,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
 
     function testMove(bool withTopup, bool withBite) internal {
         uint cdp = manager.open("ETH", address(this));
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(manager.urns(cdp), 1 ether);
 
@@ -757,7 +758,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
 
     function testQuit(bool withTopup, bool withBite, bool withBitePrice) internal {
         uint cdp = manager.open("ETH", address(this));
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(manager.urns(cdp), 1 ether);
         manager.frob(cdp, 1 ether, 50 ether);
@@ -797,7 +798,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
 
     function testQuitOtherDst(bool withTopup, bool withBite) internal {
         uint cdp = manager.open("ETH", address(this));
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(manager.urns(cdp), 1 ether);
         manager.frob(cdp, 1 ether, 50 ether);
@@ -825,7 +826,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
 
     function testFailQuitOtherDst() public {
         uint cdp = manager.open("ETH", address(this));
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(manager.urns(cdp), 1 ether);
         manager.frob(cdp, 1 ether, 50 ether);
@@ -854,7 +855,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
     }
 
     function testEnter(bool withTopup, bool withBite) internal {
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(address(this), 1 ether);
         vat.frob("ETH", address(this), address(this), address(this), 1 ether, 50 ether);
@@ -901,7 +902,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
     }
 
     function testEnterOtherSrc(bool withTopup, bool withBite) internal {
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(address(user), 1 ether);
         user.doVatFrob(vat, "ETH", address(user), address(user), address(user), 1 ether, 50 ether);
@@ -939,7 +940,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
     }
 
     function testFailEnterOtherSrc() public {
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(address(user), 1 ether);
         user.doVatFrob(vat, "ETH", address(user), address(user), address(user), 1 ether, 50 ether);
@@ -951,7 +952,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
     }
 
     function testFailEnterOtherSrc2() public {
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(address(user), 1 ether);
         user.doVatFrob(vat, "ETH", address(user), address(user), address(user), 1 ether, 50 ether);
@@ -975,7 +976,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
     }
 
     function testEnterOtherCdp(bool withTopup, bool withBite) internal {
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(address(this), 1 ether);
         vat.frob("ETH", address(this), address(this), address(this), 1 ether, 50 ether);
@@ -1012,7 +1013,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
     }
 
     function testFailEnterOtherCdp() public {
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(address(this), 1 ether);
         vat.frob("ETH", address(this), address(this), address(this), 1 ether, 50 ether);
@@ -1024,7 +1025,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
     }
 
     function testFailEnterOtherCdp2() public {
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(address(this), 1 ether);
         vat.frob("ETH", address(this), address(this), address(this), 1 ether, 50 ether);
@@ -1064,7 +1065,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
     }
 
     function testShift(bool srcTopup, bool dstTopup, bool srcBite, bool dstBite) internal {
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         uint cdpSrc = manager.open("ETH", address(this));
         ethJoin.join(address(manager.urns(cdpSrc)), 1 ether);
@@ -1102,7 +1103,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
     }
 
     function testShiftOtherCdpDst() public {
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         uint cdpSrc = manager.open("ETH", address(this));
         ethJoin.join(address(manager.urns(cdpSrc)), 1 ether);
@@ -1131,7 +1132,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
     }
 
     function testFailShiftOtherCdpDst() public {
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         uint cdpSrc = manager.open("ETH", address(this));
         ethJoin.join(address(manager.urns(cdpSrc)), 1 ether);
@@ -1143,7 +1144,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
     }
 
     function testShiftOtherCdpSrc() public {
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         uint cdpSrc = manager.open("ETH", address(this));
         ethJoin.join(address(manager.urns(cdpSrc)), 1 ether);
@@ -1172,7 +1173,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
     }
 
     function testFailShiftOtherCdpSrc() public {
-        weth.deposit.value(1 ether)();
+        weth.mint(1 ether);
         weth.approve(address(ethJoin), 1 ether);
         uint cdpSrc = manager.open("ETH", address(this));
         ethJoin.join(address(manager.urns(cdpSrc)), 1 ether);

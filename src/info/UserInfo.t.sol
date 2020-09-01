@@ -53,6 +53,7 @@ contract UserInfoTest is BCdpManagerTestBase {
     VatLike vatLike;
     ProxyRegistryLike registryLike;
     SpotLike spotterLike;
+    uint constant ONE = 1e18;
 
     function setUp() public {
 
@@ -71,7 +72,7 @@ contract UserInfoTest is BCdpManagerTestBase {
     function openCdp(address man, uint ink,uint art) internal returns(uint){
         uint cdp = DssCdpManager(man).open("ETH", address(this));
 
-        weth.deposit.value(ink)();
+        weth.mint(ink);
         weth.approve(address(ethJoin), ink);
         ethJoin.join(DssCdpManager(man).urns(cdp), ink);
 
