@@ -53,7 +53,6 @@ contract UserInfoTest is BCdpManagerTestBase {
     VatLike vatLike;
     ProxyRegistryLike registryLike;
     SpotLike spotterLike;
-    uint constant ONE = 1e18;
 
     function setUp() public {
 
@@ -109,12 +108,12 @@ contract UserInfoTest is BCdpManagerTestBase {
         FakeProxy proxy = registry.build();
 
         uint cdp = openCdp(address(manager),1 ether, 100 ether);
-        manager.move(cdp,address(this),50 ether * ONE);
+        manager.move(cdp,address(this),50 ether * WAD);
         vat.hope(address(daiJoin));
         daiJoin.exit(address(this), 50 ether);
         assertEq(dai.balanceOf(address(this)),50 ether);
 
-        this.file(address(vat), "ETH", "dust", 20 ether * ONE);
+        this.file(address(vat), "ETH", "dust", 20 ether * WAD);
 
         userInfo.setInfo(address(this), "ETH", manager, dsManager,getCdps,vatLike,
                          spotterLike, registryLike, address(123),address(dai));
@@ -299,20 +298,20 @@ contract UserInfoTest is BCdpManagerTestBase {
         uint duty;
         uint rho;
         (duty,) = jug.ilks("ETH");
-        assertEq(ONE,duty);
+        assertEq(WAD,duty);
         assertEq(uint(address(vat)),uint(address(jug.vat())));
         jug.drip("ETH");
         forwardTime(1);
         jug.drip("ETH");
-        this.file(address(jug),"ETH","duty",ONE + ONE/10);
+        this.file(address(jug),"ETH","duty",WAD + WAD/10);
         (duty,) = jug.ilks("ETH");
-        assertEq(ONE + ONE / 10,duty);
+        assertEq(WAD + WAD / 10,duty);
         forwardTime(1);
         jug.drip("ETH");
         (,rho) = jug.ilks("ETH");
         assertEq(rho,now);
         (,uint rate,,,) = vat.ilks("ETH");
-        assertEq(ONE + ONE/10,rate);
+        assertEq(WAD + WAD/10,rate);
     }
 
     function almostEqual(uint a, uint b) internal returns(bool) {

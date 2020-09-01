@@ -18,7 +18,6 @@ contract ScoringMachineTest is BCdpManagerTestBase {
 
     BCdpScore score;
     MockScoringMachine sm;
-    uint constant ONE = 1e18;
 
     function setUp() public {
         super.setUp();
@@ -121,7 +120,7 @@ contract ScoringMachineTest is BCdpManagerTestBase {
         uint cdp = openCdp(10 ether,1 ether);
 
         forwardTime(10);
-        manager.move(cdp, address(this), 1 ether * ONE);
+        manager.move(cdp, address(this), 1 ether * WAD);
         forwardTime(10);
 
         assertEq(score.getInkScore(cdp,"ETH",currTime,score.start()), 200 ether);

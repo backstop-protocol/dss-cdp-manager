@@ -29,7 +29,6 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
 
     LiquidationMachine lm;
     FakePool           fPool;
-    uint constant ONE = 1e18;
 
     function setUp() public {
         super.setUp();
@@ -46,7 +45,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
 
         // put funds in pool
         uint cdp = openCdp(100 ether, 100 ether);
-        manager.move(cdp,address(fPool),100 ether * ONE);
+        manager.move(cdp,address(fPool),100 ether * WAD);
 
         this.file(address(cat), "ETH", "chop", 1130000000000000000000000000);
     }
@@ -65,20 +64,20 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         uint duty;
         uint rho;
         (duty,) = jug.ilks("ETH");
-        assertEq(ONE,duty);
+        assertEq(WAD,duty);
         assertEq(uint(address(vat)),uint(address(jug.vat())));
         jug.drip("ETH");
         forwardTime(1);
         jug.drip("ETH");
-        this.file(address(jug),"ETH","duty",ONE + ONE/10);
+        this.file(address(jug),"ETH","duty",WAD + WAD/10);
         (duty,) = jug.ilks("ETH");
-        assertEq(ONE + ONE / 10,duty);
+        assertEq(WAD + WAD / 10,duty);
         forwardTime(1);
         jug.drip("ETH");
         (,rho) = jug.ilks("ETH");
         assertEq(rho,now);
         (,uint rate,,,) = vat.ilks("ETH");
-        assertEq(ONE + ONE/10,rate);
+        assertEq(WAD + WAD/10,rate);
     }
 
 
@@ -105,7 +104,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
 
         assertEq(art,40 ether);
         assertEq(lm.cushion(cdp),10 ether);
-        assertEq(vat.dai(address(fPool)),90 ether * ONE);
+        assertEq(vat.dai(address(fPool)),90 ether * WAD);
     }
 
     // topup not from pool
@@ -113,7 +112,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         FakePool fPool2 = new FakePool();
         fPool2.doHope(vat,address(manager));
         uint cdp = openCdp(100 ether, 100 ether);
-        manager.move(cdp,address(fPool),100 ether * ONE);
+        manager.move(cdp,address(fPool),100 ether * WAD);
 
         fPool2.doTopup(lm,cdp,10 ether);
     }
@@ -129,14 +128,14 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
 
         assertEq(art,40 ether);
         assertEq(lm.cushion(cdp),10 ether);
-        assertEq(vat.dai(address(fPool)),90 ether * ONE);
+        assertEq(vat.dai(address(fPool)),90 ether * WAD);
 
         // now untop
         fPool.doUntopByPool(lm,cdp);
         (,art) = vat.urns("ETH", urn);
         assertEq(art,50 ether);
         assertEq(lm.cushion(cdp),0 ether);
-        assertEq(vat.dai(address(fPool)),100 ether * ONE);
+        assertEq(vat.dai(address(fPool)),100 ether * WAD);
     }
 
     // untop not from pool
@@ -150,7 +149,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
 
         assertEq(art,40 ether);
         assertEq(lm.cushion(cdp),10 ether);
-        assertEq(vat.dai(address(fPool)),90 ether * ONE);
+        assertEq(vat.dai(address(fPool)),90 ether * WAD);
 
         // now untop not from pool
         lm.untopByPool(cdp);
@@ -183,7 +182,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
 
         assertEq(art,50 ether);
         assertEq(lm.cushion(cdp),0 ether);
-        assertEq(vat.dai(address(fPool)),100 ether * ONE);
+        assertEq(vat.dai(address(fPool)),100 ether * WAD);
     }
 
     // top when rate is non one
@@ -195,12 +194,12 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         address urn = manager.urns(cdp);
         (,uint art) = vat.urns("ETH", urn);
         assertEq(art,40 ether);
-        assertEq(vat.dai(address(fPool)),(100 - 11) * 1 ether * ONE);
+        assertEq(vat.dai(address(fPool)),(100 - 11) * 1 ether * WAD);
 
         fPool.doUntopByPool(lm,cdp);
         (,art) = vat.urns("ETH", urn);
         assertEq(art,50 ether);
-        assertEq(vat.dai(address(fPool)),100 ether * ONE);
+        assertEq(vat.dai(address(fPool)),100 ether * WAD);
     }
 
     // top when rate is non one
@@ -212,7 +211,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         address urn = manager.urns(cdp);
         (,uint art) = vat.urns("ETH", urn);
         assertEq(art,40 ether);
-        assertEq(vat.dai(address(fPool)),(100 - 11) * 1 ether * ONE);
+        assertEq(vat.dai(address(fPool)),(100 - 11) * 1 ether * WAD);
 
         forwardTime(1);
         jug.drip("ETH");
@@ -221,7 +220,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         (,art) = vat.urns("ETH", urn);
         assertEq(art,50 ether);
         // 10% interest per second
-        assertEq(vat.dai(address(fPool)),100 ether * ONE + 11 ether * ONE / 10);
+        assertEq(vat.dai(address(fPool)),100 ether * WAD + 11 ether * WAD / 10);
     }
 
     // test bite, happy path
@@ -242,7 +241,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
 
         assertEq(dink,(10 ether * 113 / 100)/uint(70));
         // consumes 1/5 of the cushion
-        assertEq(daiBefore - daiAfter, (10 ether - 2 ether)* ONE);
+        assertEq(daiBefore - daiAfter, (10 ether - 2 ether)* WAD);
         assertEq(vat.gem("ETH",address(fPool)), dink);
     }
 
@@ -264,7 +263,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
 
         assertEq(dink,(50 ether * 113 / 100)/uint(70));
         // 10 ETH were reused from the cushion
-        assertEq(daiBefore - daiAfter, (50 ether - 10 ether) * ONE);
+        assertEq(daiBefore - daiAfter, (50 ether - 10 ether) * WAD);
         assertEq(vat.gem("ETH",address(fPool)), dink);
     }
 
@@ -291,7 +290,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         daiAfter = vat.dai(address(fPool));
         assertEq(dink,(10 ether * 113 / 100)/uint(70));
         // 10/5 ETH were reused from the cushion
-        assertEq(daiBefore - daiAfter, (10 ether - 2 ether) * ONE);
+        assertEq(daiBefore - daiAfter, (10 ether - 2 ether) * WAD);
         assertEq(vat.gem("ETH",address(fPool)), expectedBalance);
 
         // bite 15
@@ -302,7 +301,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         daiAfter = vat.dai(address(fPool));
         assertEq(dink,(15 ether * 113 / 100)/uint(70));
         // 10 * 15/50 ETH were reused from the cushion
-        assertEq(daiBefore - daiAfter, (15 ether - 10 ether * 15 / 50) * ONE);
+        assertEq(daiBefore - daiAfter, (15 ether - 10 ether * 15 / 50) * WAD);
         assertEq(vat.gem("ETH",address(fPool)), expectedBalance);
 
         // bite 25
@@ -313,7 +312,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         daiAfter = vat.dai(address(fPool));
         assertEq(dink,(25 ether * 113 / 100)/uint(70));
         // 10 * 25/50 ETH were reused from the cushion
-        assertEq(daiBefore - daiAfter, (25 ether - 10 ether * 25 / 50) * ONE);
+        assertEq(daiBefore - daiAfter, (25 ether - 10 ether * 25 / 50) * WAD);
         assertEq(vat.gem("ETH",address(fPool)), expectedBalance);
     }
 
@@ -339,7 +338,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         daiAfter = vat.dai(address(fPool));
         assertEq(dink,(10 ether * 113 / 100)/uint(70));
         // 10/5 ETH were reused from the cushion
-        assertEq(daiBefore - daiAfter, (10 ether - 2 ether) * ONE);
+        assertEq(daiBefore - daiAfter, (10 ether - 2 ether) * WAD);
         assertEq(vat.gem("ETH",address(fPool)), expectedBalance);
 
         // reach bite state
@@ -356,7 +355,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         daiAfter = vat.dai(address(fPool));
         assertEq(dink,(15 ether * 113 / 100)/uint(700));
         // 10 * 15/50 ETH were reused from the cushion
-        assertEq(daiBefore - daiAfter, (15 ether - 10 ether * 15 / 50) * ONE);
+        assertEq(daiBefore - daiAfter, (15 ether - 10 ether * 15 / 50) * WAD);
         assertEq(vat.gem("ETH",address(fPool)), expectedBalance);
     }
 
@@ -387,7 +386,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         assert(dink >= estimatedInk);
         assert(dink <= estimatedInk + 1);
         // 10/5 ETH were reused from the cushion
-        assertEq(daiBefore - daiAfter, (10 ether - 2 ether) * 110 * ONE/100);
+        assertEq(daiBefore - daiAfter, (10 ether - 2 ether) * 110 * WAD/100);
         assertEq(vat.gem("ETH",address(fPool)), expectedBalance);
     }
 
