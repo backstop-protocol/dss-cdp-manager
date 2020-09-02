@@ -140,7 +140,6 @@ contract DeploymentTest is BCdpManagerTestBase {
     FakeMember member;
     FakeMember[] members;
     FakeMember nonMember;
-    uint constant ONE = 1e18;
     address constant JAR = address(0x1234567890);
 
     VatDeployer deployer;
@@ -234,7 +233,7 @@ contract DeploymentTest is BCdpManagerTestBase {
 
     function seedMember(FakeMember m) internal {
         uint cdp = openCdp(1e3 ether, 1e3 ether);
-        manager.move(cdp,address(m),1e3 ether * ONE);
+        manager.move(cdp,address(m),1e3 ether * RAY);
     }
 
     function timeReset() internal {
