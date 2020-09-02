@@ -71,7 +71,7 @@ contract PoolTest is BCdpManagerTestBase {
     }
 
     function radToWei(uint rad) pure internal returns(uint) {
-        return rad/WAD;
+        return rad/RAY;
     }
 
     function openCdp(uint ink,uint art) internal returns(uint){
@@ -88,7 +88,7 @@ contract PoolTest is BCdpManagerTestBase {
 
     function seedMember(FakeMember m) internal {
         uint cdp = openCdp(1e3 ether, 1e3 ether);
-        manager.move(cdp,address(m),1e3 ether * WAD);
+        manager.move(cdp,address(m),1e3 ether * RAY);
     }
 
     function timeReset() internal {
@@ -105,20 +105,20 @@ contract PoolTest is BCdpManagerTestBase {
         uint duty;
         uint rho;
         (duty,) = jug.ilks("ETH");
-        assertEq(WAD,duty);
+        assertEq(RAY,duty);
         assertEq(uint(address(vat)),uint(address(jug.vat())));
         jug.drip("ETH");
         forwardTime(1);
         jug.drip("ETH");
-        this.file(address(jug),"ETH","duty",WAD + WAD/10);
+        this.file(address(jug),"ETH","duty",RAY + RAY/10);
         (duty,) = jug.ilks("ETH");
-        assertEq(WAD + WAD / 10,duty);
+        assertEq(RAY + RAY / 10,duty);
         forwardTime(1);
         jug.drip("ETH");
         (,rho) = jug.ilks("ETH");
         assertEq(rho,now);
         (,uint rate,,,) = vat.ilks("ETH");
-        assertEq(WAD + WAD/10,rate);
+        assertEq(RAY + RAY/10,rate);
     }
 
     function almostEqual(uint a, uint b) internal returns(bool) {
@@ -321,9 +321,9 @@ contract PoolTest is BCdpManagerTestBase {
 
         (int dart, int dtab, uint art) = pool.topAmount(cdp);
 
-        assertEq(uint(dtab),10 ether * WAD);
+        assertEq(uint(dtab),10 ether * RAY);
         assertEq(art,110 ether);
-        assertEq(uint(dart) * WAD,uint(dtab));
+        assertEq(uint(dart) * RAY,uint(dtab));
     }
 
     function testTopAmountWithRate() public {
@@ -341,7 +341,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         (int dart, int dtab, uint art) = pool.topAmount(cdp);
 
-        assert(almostEqual(uint(dtab),10 ether * WAD));
+        assert(almostEqual(uint(dtab),10 ether * RAY));
         assertEq(art,100 ether);
         assert(almostEqual(uint(dart),10 ether * uint(100) / 110));
     }
@@ -358,9 +358,9 @@ contract PoolTest is BCdpManagerTestBase {
 
         (int dart, int dtab, uint art) = pool.topAmount(cdp);
 
-        assertEq(dtab,-10 ether * int(WAD));
+        assertEq(dtab,-10 ether * int(RAY));
         assertEq(art,90 ether);
-        assertEq(dart * int(WAD),dtab);
+        assertEq(dart * int(RAY),dtab);
     }
 
     function testTopAmountTooEarly() public {
@@ -411,10 +411,10 @@ contract PoolTest is BCdpManagerTestBase {
     }
 
     function testHappyTopup() public returns(uint cdp) {
-        members[0].doDeposit(pool,1000 ether * WAD);
-        members[1].doDeposit(pool,950 ether * WAD);
-        members[2].doDeposit(pool,900 ether * WAD);
-        members[3].doDeposit(pool,850 ether * WAD);
+        members[0].doDeposit(pool,1000 ether * RAY);
+        members[1].doDeposit(pool,950 ether * RAY);
+        members[2].doDeposit(pool,900 ether * RAY);
+        members[3].doDeposit(pool,850 ether * RAY);
 
         pool.setMinArt(1 ether);
 
@@ -426,9 +426,9 @@ contract PoolTest is BCdpManagerTestBase {
 
         (int dart, int dtab, uint art) = pool.topAmount(cdp);
 
-        assertEq(uint(dtab),10 ether * WAD);
+        assertEq(uint(dtab),10 ether * RAY);
         assertEq(art,110 ether);
-        assertEq(uint(dart) * WAD,uint(dtab));
+        assertEq(uint(dart) * RAY,uint(dtab));
 
         members[0].doTopup(pool,cdp);
 
@@ -442,17 +442,17 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(address(winners[3]),address(members[3]));
 
         // check balances
-        assertEq(pool.rad(address(members[0])),uint(1000 ether * WAD) - uint(1+ dtab/4));
-        assertEq(pool.rad(address(members[1])),uint(950 ether * WAD) - uint(1+ dtab/4));
-        assertEq(pool.rad(address(members[2])),uint(900 ether * WAD) - uint(1+ dtab/4));
-        assertEq(pool.rad(address(members[3])),uint(850 ether * WAD) - uint(1+ dtab/4));
+        assertEq(pool.rad(address(members[0])),uint(1000 ether * RAY) - uint(1+ dtab/4));
+        assertEq(pool.rad(address(members[1])),uint(950 ether * RAY) - uint(1+ dtab/4));
+        assertEq(pool.rad(address(members[2])),uint(900 ether * RAY) - uint(1+ dtab/4));
+        assertEq(pool.rad(address(members[3])),uint(850 ether * RAY) - uint(1+ dtab/4));
     }
 
     function testSingleTopup() public {
-        members[0].doDeposit(pool,1000 ether * WAD);
-        members[1].doDeposit(pool,950 ether * WAD);
-        members[2].doDeposit(pool,900 ether * WAD);
-        members[3].doDeposit(pool,850 ether * WAD);
+        members[0].doDeposit(pool,1000 ether * RAY);
+        members[1].doDeposit(pool,950 ether * RAY);
+        members[2].doDeposit(pool,900 ether * RAY);
+        members[3].doDeposit(pool,850 ether * RAY);
 
         pool.setMinArt(10000 ether);
 
@@ -464,9 +464,9 @@ contract PoolTest is BCdpManagerTestBase {
 
         (int dart, int dtab, uint art) = pool.topAmount(cdp);
 
-        assertEq(uint(dtab),10 ether * WAD);
+        assertEq(uint(dtab),10 ether * RAY);
         assertEq(art,110 ether);
-        assertEq(uint(dart) * WAD,uint(dtab));
+        assertEq(uint(dart) * RAY,uint(dtab));
 
         address[] memory singleMember = pool.chooseMember(cdp,uint(dtab),getMembers());
 
@@ -479,7 +479,7 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(address(winners[0]),address(singleMember[0]));
 
         for(uint i = 0 ; i < 4 ; i++) {
-            uint expectedRad = (1000 - 50 * i) * 1 ether * WAD;
+            uint expectedRad = (1000 - 50 * i) * 1 ether * RAY;
             if(address(members[i]) == address(singleMember[0])) expectedRad -= (uint(dtab) + 1);
 
             assertEq(expectedRad,pool.rad(address(members[i])));
@@ -487,10 +487,10 @@ contract PoolTest is BCdpManagerTestBase {
     }
 
     function testFailedSingleTopupWrongMemberTopup() public {
-        members[0].doDeposit(pool,1000 ether * WAD);
-        members[1].doDeposit(pool,950 ether * WAD);
-        members[2].doDeposit(pool,900 ether * WAD);
-        members[3].doDeposit(pool,850 ether * WAD);
+        members[0].doDeposit(pool,1000 ether * RAY);
+        members[1].doDeposit(pool,950 ether * RAY);
+        members[2].doDeposit(pool,900 ether * RAY);
+        members[3].doDeposit(pool,850 ether * RAY);
 
         pool.setMinArt(10000 ether);
 
@@ -502,9 +502,9 @@ contract PoolTest is BCdpManagerTestBase {
 
         (int dart, int dtab, uint art) = pool.topAmount(cdp);
 
-        assertEq(uint(dtab),10 ether * WAD);
+        assertEq(uint(dtab),10 ether * RAY);
         assertEq(art,110 ether);
-        assertEq(uint(dart) * WAD,uint(dtab));
+        assertEq(uint(dart) * RAY,uint(dtab));
 
         address[] memory singleMember = pool.chooseMember(cdp,uint(dtab),getMembers());
 
@@ -518,10 +518,10 @@ contract PoolTest is BCdpManagerTestBase {
     }
 
     function testFailedTopupNoNeed() public {
-        members[0].doDeposit(pool,1000 ether * WAD);
-        members[1].doDeposit(pool,950 ether * WAD);
-        members[2].doDeposit(pool,900 ether * WAD);
-        members[3].doDeposit(pool,850 ether * WAD);
+        members[0].doDeposit(pool,1000 ether * RAY);
+        members[1].doDeposit(pool,950 ether * RAY);
+        members[2].doDeposit(pool,900 ether * RAY);
+        members[3].doDeposit(pool,850 ether * RAY);
 
         // open cdp with rate  = 1, that hit liquidation state
         uint cdp = openCdp(1 ether, 110 ether); // 1 eth, 110 dai
@@ -530,7 +530,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         assertEq(uint(dtab),0);
         assertEq(art,110 ether);
-        assertEq(uint(dart) * WAD,uint(dtab));
+        assertEq(uint(dart) * RAY,uint(dtab));
 
         members[0].doTopup(pool,cdp);
     }
@@ -544,15 +544,15 @@ contract PoolTest is BCdpManagerTestBase {
 
         (int dart, int dtab, uint art) = pool.topAmount(cdp);
 
-        assertEq(uint(dtab),10 ether * WAD);
+        assertEq(uint(dtab),10 ether * RAY);
         assertEq(art,110 ether);
-        assertEq(uint(dart) * WAD,uint(dtab));
+        assertEq(uint(dart) * RAY,uint(dtab));
 
         members[0].doTopup(pool,cdp);
     }
 
     function testUntopSingle() public {
-        members[0].doDeposit(pool,1000 ether * WAD);
+        members[0].doDeposit(pool,1000 ether * RAY);
 
         pool.setMinArt(10000 ether);
 
@@ -564,9 +564,9 @@ contract PoolTest is BCdpManagerTestBase {
 
         (int dart, int dtab, uint art) = pool.topAmount(cdp);
 
-        assertEq(uint(dtab),10 ether * WAD);
+        assertEq(uint(dtab),10 ether * RAY);
         assertEq(art,110 ether);
-        assertEq(uint(dart) * WAD,uint(dtab));
+        assertEq(uint(dart) * RAY,uint(dtab));
 
         members[0].doTopup(pool,cdp);
 
@@ -576,7 +576,7 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(winners.length,1);
         assertEq(address(winners[0]),address(members[0]));
 
-        assertEq(pool.rad(address(members[0])),1000 ether * WAD - uint(dtab) - 1);
+        assertEq(pool.rad(address(members[0])),1000 ether * RAY - uint(dtab) - 1);
 
         // do dummy frob, which will call topup
         manager.frob(cdp, -1, 0);
@@ -589,7 +589,7 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(cdpCushion2,0);
         assertEq(winners2.length,0);
 
-        assertEq(pool.rad(address(members[0])),1000 ether * WAD - 1);
+        assertEq(pool.rad(address(members[0])),1000 ether * RAY - 1);
     }
 
     function testUntopHappy() public {
@@ -606,10 +606,10 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(cdpCushion2,0);
         assertEq(winners2.length,0);
 
-        assertEq(pool.rad(address(members[0])),1000 ether * WAD - 1);
-        assertEq(pool.rad(address(members[1])),950 ether * WAD - 1);
-        assertEq(pool.rad(address(members[2])),900 ether * WAD - 1);
-        assertEq(pool.rad(address(members[3])),850 ether * WAD - 1);
+        assertEq(pool.rad(address(members[0])),1000 ether * RAY - 1);
+        assertEq(pool.rad(address(members[1])),950 ether * RAY - 1);
+        assertEq(pool.rad(address(members[2])),900 ether * RAY - 1);
+        assertEq(pool.rad(address(members[3])),850 ether * RAY - 1);
     }
 
     function testFailedUntopCushionNotReleased() public {
@@ -620,10 +620,10 @@ contract PoolTest is BCdpManagerTestBase {
     }
 
     function testSimpleBite() public {
-        members[0].doDeposit(pool,1000 ether * WAD);
-        members[1].doDeposit(pool,950 ether * WAD);
-        members[2].doDeposit(pool,900 ether * WAD);
-        members[3].doDeposit(pool,850 ether * WAD);
+        members[0].doDeposit(pool,1000 ether * RAY);
+        members[1].doDeposit(pool,950 ether * RAY);
+        members[2].doDeposit(pool,900 ether * RAY);
+        members[3].doDeposit(pool,850 ether * RAY);
 
         uint cdp = openCdp(1 ether, 110 ether); // 1 eth, 110 dai
 
@@ -651,15 +651,15 @@ contract PoolTest is BCdpManagerTestBase {
 
         uint userRemainingCushion = 1 + cdpCushion / 4 - 10 * cdpCushion / 110; // 10/110 of the debt is being bitten
         uint userPoolBalance = radToWei(pool.rad(address(members[0])));
-        uint userExpectedPoolBalance = radToWei(990 ether * WAD - userRemainingCushion) - 1; // TODO - check why -1?
+        uint userExpectedPoolBalance = radToWei(990 ether * RAY - userRemainingCushion) - 1; // TODO - check why -1?
         assertEq(userPoolBalance,userExpectedPoolBalance);
     }
 
     function testFullBite() public {
-        members[0].doDeposit(pool,1000 ether * WAD);
-        members[1].doDeposit(pool,950 ether * WAD);
-        members[2].doDeposit(pool,900 ether * WAD);
-        members[3].doDeposit(pool,850 ether * WAD);
+        members[0].doDeposit(pool,1000 ether * RAY);
+        members[1].doDeposit(pool,950 ether * RAY);
+        members[2].doDeposit(pool,900 ether * RAY);
+        members[3].doDeposit(pool,850 ether * RAY);
 
         uint cdp = openCdp(1 ether, 104 ether); // 1 eth, 110 dai
 
@@ -683,7 +683,7 @@ contract PoolTest is BCdpManagerTestBase {
             assertEq(vat.gem("ETH",address(members[i])),expectedEth);
             (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
             assertEq(bite[i],26 ether);
-            assertEq(pool.rad(address(members[i])),(1000 ether - 50 ether * i - 26 ether) * WAD - 1);
+            assertEq(pool.rad(address(members[i])),(1000 ether - 50 ether * i - 26 ether) * RAY - 1);
         }
 
         // jar should get 2% from 104 * 1.1 / 130
@@ -721,10 +721,10 @@ contract PoolTest is BCdpManagerTestBase {
     function testBiteInPartsThenUntop() public {
         timeReset();
 
-        members[0].doDeposit(pool,1000 ether * WAD);
-        members[1].doDeposit(pool,950 ether * WAD);
-        members[2].doDeposit(pool,900 ether * WAD);
-        members[3].doDeposit(pool,850 ether * WAD);
+        members[0].doDeposit(pool,1000 ether * RAY);
+        members[1].doDeposit(pool,950 ether * RAY);
+        members[2].doDeposit(pool,900 ether * RAY);
+        members[3].doDeposit(pool,850 ether * RAY);
 
         uint cdp = openCdp(1 ether, 104 ether); // 1 eth, 110 dai
 
@@ -760,13 +760,13 @@ contract PoolTest is BCdpManagerTestBase {
 
         // check balances
         // 0 consumed 26 ether
-        assertEq(radToWei(pool.rad(address(members[0]))),radToWei((1000 ether - 26 ether) * WAD - 1)-1);
+        assertEq(radToWei(pool.rad(address(members[0]))),radToWei((1000 ether - 26 ether) * RAY - 1)-1);
         // 1 consumed 24 ether
-        assertEq(radToWei(pool.rad(address(members[1]))),radToWei((950 ether - 24 ether) * WAD - 1));
+        assertEq(radToWei(pool.rad(address(members[1]))),radToWei((950 ether - 24 ether) * RAY - 1));
         // 2 consumed 17 ether
-        assertEq(radToWei(pool.rad(address(members[2]))),radToWei((900 ether - 17 ether) * WAD - 1));
+        assertEq(radToWei(pool.rad(address(members[2]))),radToWei((900 ether - 17 ether) * RAY - 1));
         // 3 consumed 0 ether
-        assertEq(radToWei(pool.rad(address(members[3]))),radToWei((850 ether - 0 ether) * WAD - 1));
+        assertEq(radToWei(pool.rad(address(members[3]))),radToWei((850 ether - 0 ether) * RAY - 1));
 
         // check that cdp was reset
         (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
@@ -777,10 +777,10 @@ contract PoolTest is BCdpManagerTestBase {
     }
 
     function testFailedBiteTooMuch() public {
-        members[0].doDeposit(pool,1000 ether * WAD);
-        members[1].doDeposit(pool,950 ether * WAD);
-        members[2].doDeposit(pool,900 ether * WAD);
-        members[3].doDeposit(pool,850 ether * WAD);
+        members[0].doDeposit(pool,1000 ether * RAY);
+        members[1].doDeposit(pool,950 ether * RAY);
+        members[2].doDeposit(pool,900 ether * RAY);
+        members[3].doDeposit(pool,850 ether * RAY);
 
         uint cdp = openCdp(1 ether, 104 ether); // 1 eth, 110 dai
 
@@ -801,10 +801,10 @@ contract PoolTest is BCdpManagerTestBase {
     }
 
     function testFailedBiteInvalidMember() public {
-        members[0].doDeposit(pool,1000 ether * WAD);
-        members[1].doDeposit(pool,950 ether * WAD);
-        members[2].doDeposit(pool,900 ether * WAD);
-        members[3].doDeposit(pool,0 ether * WAD);
+        members[0].doDeposit(pool,1000 ether * RAY);
+        members[1].doDeposit(pool,950 ether * RAY);
+        members[2].doDeposit(pool,900 ether * RAY);
+        members[3].doDeposit(pool,0 ether * RAY);
 
         uint cdp = openCdp(1 ether, 104 ether); // 1 eth, 110 dai
 
@@ -816,7 +816,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         members[0].doTopup(pool,cdp);
 
-        members[3].doDeposit(pool,850 ether * WAD);
+        members[3].doDeposit(pool,850 ether * RAY);
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
@@ -826,9 +826,9 @@ contract PoolTest is BCdpManagerTestBase {
     }
 
     function testFailedBiteLowDink() public {
-        members[0].doDeposit(pool,1000 ether * WAD);
-        members[1].doDeposit(pool,950 ether * WAD);
-        members[2].doDeposit(pool,900 ether * WAD);
+        members[0].doDeposit(pool,1000 ether * RAY);
+        members[1].doDeposit(pool,950 ether * RAY);
+        members[2].doDeposit(pool,900 ether * RAY);
 
         uint cdp = openCdp(1 ether, 104 ether); // 1 eth, 110 dai
 
@@ -850,10 +850,10 @@ contract PoolTest is BCdpManagerTestBase {
     function testBiteInPartsThenUntopNonOneRate() public {
         timeReset();
 
-        members[0].doDeposit(pool,1000 ether * WAD);
-        members[1].doDeposit(pool,950 ether * WAD);
-        members[2].doDeposit(pool,900 ether * WAD);
-        members[3].doDeposit(pool,850 ether * WAD);
+        members[0].doDeposit(pool,1000 ether * RAY);
+        members[1].doDeposit(pool,950 ether * RAY);
+        members[2].doDeposit(pool,900 ether * RAY);
+        members[3].doDeposit(pool,850 ether * RAY);
 
         uint cdp = openCdp(1 ether, 104 ether); // 1 eth, 110 dai
 
@@ -891,13 +891,13 @@ contract PoolTest is BCdpManagerTestBase {
 
         // check balances
         // 0 consumed 26 ether
-        assertEq(radToWei(pool.rad(address(members[0]))),radToWei((1000 ether - 26 ether * 11/10) * WAD - 1)-1);
+        assertEq(radToWei(pool.rad(address(members[0]))),radToWei((1000 ether - 26 ether * 11/10) * RAY - 1)-1);
         // 1 consumed 24 ether
-        assertEq(radToWei(pool.rad(address(members[1]))),radToWei((950 ether - 24 ether * 11/10) * WAD - 1));
+        assertEq(radToWei(pool.rad(address(members[1]))),radToWei((950 ether - 24 ether * 11/10) * RAY - 1));
         // 2 consumed 17 ether
-        assertEq(radToWei(pool.rad(address(members[2]))),radToWei((900 ether - 17 ether * 11/10) * WAD - 1));
+        assertEq(radToWei(pool.rad(address(members[2]))),radToWei((900 ether - 17 ether * 11/10) * RAY - 1));
         // 3 consumed 0 ether
-        assertEq(radToWei(pool.rad(address(members[3]))),radToWei((850 ether - 0 ether * 11/10) * WAD - 1));
+        assertEq(radToWei(pool.rad(address(members[3]))),radToWei((850 ether - 0 ether * 11/10) * RAY - 1));
 
         // check that cdp was reset
         (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
@@ -919,10 +919,10 @@ contract PoolTest is BCdpManagerTestBase {
     }
 
     function testFullBiteWithRate() public {
-        members[0].doDeposit(pool,1000 ether * WAD);
-        members[1].doDeposit(pool,950 ether * WAD);
-        members[2].doDeposit(pool,900 ether * WAD);
-        members[3].doDeposit(pool,850 ether * WAD);
+        members[0].doDeposit(pool,1000 ether * RAY);
+        members[1].doDeposit(pool,950 ether * RAY);
+        members[2].doDeposit(pool,900 ether * RAY);
+        members[3].doDeposit(pool,850 ether * RAY);
 
         uint cdp = openCdp(1 ether, 104 ether); // 1 eth, 110 dai
 
@@ -948,7 +948,7 @@ contract PoolTest is BCdpManagerTestBase {
             assertEq(vat.gem("ETH",address(members[i])),expectedEth);
             (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
             assertEq(bite[i],26 ether);
-            assertAlmostEq(pool.rad(address(members[i]))/WAD,((1000 ether - 50 ether * i - 26 ether * uint(11)/10) * WAD - 1)/WAD);
+            assertAlmostEq(pool.rad(address(members[i]))/RAY,((1000 ether - 50 ether * i - 26 ether * uint(11)/10) * RAY - 1)/RAY);
         }
 
         // jar should get 2% from 104 * 1.1 * 1.1 / 140
