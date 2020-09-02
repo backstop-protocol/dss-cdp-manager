@@ -675,10 +675,9 @@ contract BCdpManagerTest is BCdpManagerTestBase {
         assertEq(cushion,LiquidationMachine(manager).cushion(cdp));
         assertEq(vat.gem("ETH", manager.urns(cdp)), 0);
         assertEq(vat.gem("ETH", address(this)), 1 ether);
-        uint prevBalance = address(this).balance;
+        uint prevBalance = weth.balanceOf(address(this));
         ethJoin.exit(address(this), 1 ether);
-        //weth.withdraw(1 ether);
-        assertEq(address(this).balance, prevBalance + 1 ether);
+        assertEq(weth.balanceOf(address(this)), prevBalance + 1 ether);
     }
 
     function testGetWrongCollateralBack() public {
