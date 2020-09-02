@@ -202,14 +202,14 @@ contract BCdpManagerTestBase is DssDeployTestBase {
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(manager.urns(liquidatorCdp), 1 ether);
         manager.frob(liquidatorCdp, 1 ether, 51 ether);
-        manager.move(liquidatorCdp, address(this), 51 ether * WAD);
-        vat.move(address(this), address(liquidator), 51 ether * WAD);
+        manager.move(liquidatorCdp, address(this), 51 ether * RAY);
+        vat.move(address(this), address(liquidator), 51 ether * RAY);
 
-        liquidator.doDeposit(pool, 51 ether * WAD);
+        liquidator.doDeposit(pool, 51 ether * RAY);
 
         osm.setPrice(70 * 1e18); // 1 ETH = 50 DAI
         (int dart, int dtab, uint art) = pool.topAmount(cdp);
-        assertEq(uint(dtab) / WAD, 3333333333333333334 /* 3.333 DAI */);
+        assertEq(uint(dtab) / RAY, 3333333333333333334 /* 3.333 DAI */);
         assertEq(uint(dart), 3333333333333333334 /* 3.333 DAI */);
 
         liquidator.doTopup(pool,cdp);
@@ -293,24 +293,24 @@ contract BCdpManagerTest is BCdpManagerTestBase {
         weth.approve(address(ethJoin), 1 ether);
         ethJoin.join(manager.urns(cdp), 1 ether);
         manager.frob(cdp, 1 ether, 50 ether);
-        assertEq(vat.dai(manager.urns(cdp)), 50 ether * WAD);
+        assertEq(vat.dai(manager.urns(cdp)), 50 ether * RAY);
         assertEq(vat.dai(address(this)), 0);
-        manager.move(cdp, address(this), 50 ether * WAD);
+        manager.move(cdp, address(this), 50 ether * RAY);
         assertEq(vat.dai(manager.urns(cdp)), 0);
-        assertEq(vat.dai(address(this)), 50 ether * WAD);
+        assertEq(vat.dai(address(this)), 50 ether * RAY);
         assertEq(dai.balanceOf(address(this)), 0);
 
-        vat.move(address(this), address(liquidator), 50 ether * WAD);
-        liquidator.doDeposit(pool, 50 ether * WAD);
+        vat.move(address(this), address(liquidator), 50 ether * RAY);
+        liquidator.doDeposit(pool, 50 ether * RAY);
 
-        assertEq(vat.dai(address(pool)), 50 ether * WAD);
+        assertEq(vat.dai(address(pool)), 50 ether * RAY);
 
         address urn = manager.urns(cdp);
         (, uint artPre) = vat.urns("ETH", urn);
 
         osm.setPrice(70 * 1e18); // 1 ETH = 50 DAI
         (int dart, int dtab, uint art) = pool.topAmount(cdp);
-        assertEq(uint(dtab) / WAD, 3333333333333333334 /* 3.333 DAI */);
+        assertEq(uint(dtab) / RAY, 3333333333333333334 /* 3.333 DAI */);
         assertEq(uint(dart), 3333333333333333334 /* 3.333 DAI */);
 
         liquidator.doTopup(pool,cdp);
@@ -601,11 +601,11 @@ contract BCdpManagerTest is BCdpManagerTestBase {
 
         assertEq(LiquidationMachine(manager).cushion(cdp), 0);
 
-        assertEq(vat.dai(manager.urns(cdp)), (50 ether + artPre)* WAD);
+        assertEq(vat.dai(manager.urns(cdp)), (50 ether + artPre)* RAY);
         assertEq(vat.dai(address(this)), 0);
-        manager.move(cdp, address(this), 50 ether * WAD);
-        assertEq(vat.dai(manager.urns(cdp)), artPre * WAD);
-        assertEq(vat.dai(address(this)), 50 ether * WAD);
+        manager.move(cdp, address(this), 50 ether * RAY);
+        assertEq(vat.dai(manager.urns(cdp)), artPre * RAY);
+        assertEq(vat.dai(address(this)), 50 ether * RAY);
         assertEq(dai.balanceOf(address(this)), 0);
         vat.hope(address(daiJoin));
         daiJoin.exit(address(this), 50 ether);
@@ -635,7 +635,7 @@ contract BCdpManagerTest is BCdpManagerTestBase {
         ethJoin.join(manager.urns(cdp), 1 ether);
         manager.cdpAllow(cdp, address(user), 1);
         user.doFrob(manager, cdp, 1 ether, 50 ether);
-        assertEq(vat.dai(manager.urns(cdp)), 50 ether * WAD);
+        assertEq(vat.dai(manager.urns(cdp)), 50 ether * RAY);
     }
 
     function testFailFrobNotAllowed() public {
@@ -733,9 +733,9 @@ contract BCdpManagerTest is BCdpManagerTestBase {
         if(withBite) reachBite(cdp);
         uint cushion = LiquidationMachine(manager).cushion(cdp);
 
-        manager.move(cdp, address(this), 50 ether * WAD);
+        manager.move(cdp, address(this), 50 ether * RAY);
 
-        assertEq(vat.dai(address(this)), 50 ether * WAD);
+        assertEq(vat.dai(address(this)), 50 ether * RAY);
         assertEq(LiquidationMachine(manager).cushion(cdp), cushion);
     }
 
