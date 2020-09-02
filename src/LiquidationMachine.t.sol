@@ -47,7 +47,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         uint cdp = openCdp(100 ether, 100 ether);
         manager.move(cdp,address(fPool),100 ether * RAY);
 
-        this.file(address(cat), "ETH", "chop", 1130000000000000000);
+        this.file(address(cat), "ETH", "chop", 1130000000000000000); // 1.13
     }
 
     function timeReset() internal {

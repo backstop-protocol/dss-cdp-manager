@@ -15,8 +15,8 @@ contract PriceFeed is DSValue {
 }
 
 contract FakeCat {
-    function ilks(bytes32 ilk) external pure returns(uint,uint,uint) {
-        return (0,1130000000000000000000000000,0);
+    function ilks(bytes32 ilk) external pure returns(uint flip,uint chop,uint dunk) {
+        return (0,1130000000000000000,0);
     }
 }
 
