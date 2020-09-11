@@ -1,17 +1,16 @@
 version: 2.1
 jobs:
-  build:
+  test:
     docker:
-      - image: ethereum/solc:0.5.16
+      - image: nixorg/nix:circleci
     steps:
       - checkout
+      - attach_workspace:
+          at: /tmp/
       - run:
-          name: Install build essentials
+          name: Test the contract
           command: |
-            apk update
-            apk add git make
-      - run:
-          name: Compile the contract
-          command: |
-            make
-            git diff --color --exit-code
+            mkdir build
+            cp -r /tmp/build/* build
+            cp -r /tmp/lib/* lib
+            nix-shell --command 'make test'
