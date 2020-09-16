@@ -1,6 +1,6 @@
 pragma solidity ^0.5.12;
 
-import { BCdpManagerTestBase, Hevm, FakeUser } from "./../BCdpManager.t.sol";
+import { BCdpManagerTestBase, Hevm, FakeUser, FakeDaiToUsdPriceFeed } from "./../BCdpManager.t.sol";
 import { BCdpScore } from "./../BCdpScore.sol";
 import { Pool } from "./Pool.sol";
 import { LiquidationMachine } from "./../LiquidationMachine.sol";
@@ -675,15 +675,16 @@ contract PoolTest is BCdpManagerTestBase {
 
         //uint ethBefore = vat.gem("ETH", address(members[0]));
         this.file(address(cat), "ETH", "chop", WAD + WAD/10);
-        pool.setProfitParams(1, 100); // 1% goes to jar
-        // for 10 ether we expect 10/130 * 1.1 = 11/130, from which 99% goes to member
-        uint expectedEth = uint(99) * 11 ether / (130 * 100);
-        assert(! canKeepersBite(cdp));
+        pool.setProfitParams(1, 100); // 1% goes to member
+        // for 10 ether we expect 10/130 * 1.1 = 11/130, from which 1% goes to member
+        uint expectedEth = uint(1) * 11 ether / (130 * 100);
+        uint expectedEthInJar = uint(99) * 11 ether / (130 * 100);
+        assertTrue(! canKeepersBite(cdp));
         uint dink = members[0].doPoolBite(pool, cdp, 10 ether, expectedEth);
-        assert(! canKeepersBite(cdp));
+        assertTrue(! canKeepersBite(cdp));
         assertEq(uint(dink), expectedEth);
         assertEq(vat.gem("ETH", address(members[0])), expectedEth);
-        assertEq(vat.gem("ETH", address(jar)), 11 ether / uint(130 * 100));
+        assertEq(vat.gem("ETH", address(jar)), expectedEthInJar);
 
         (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
         cdpArt; //shh
@@ -715,13 +716,14 @@ contract PoolTest is BCdpManagerTestBase {
 
         //uint ethBefore = vat.gem("ETH", address(members[0]));
         this.file(address(cat), "ETH", "chop", WAD + WAD/10);
-        pool.setProfitParams(2, 100); // 2% goes to jar
-        // for 26 ether we expect 26/130 * 1.1 = 28.6/130, from which 98% goes to member
-        uint expectedEth = uint(98) * 286 ether / (130 * 100 * 10);
+        pool.setProfitParams(2, 100); // 2% goes to member
+        // for 26 ether we expect 26/130 * 1.1 = 28.6/130, from which 2% goes to member
+        uint expectedEth = uint(2) * 286 ether / (130 * 100 * 10);
+        uint expectedEthInJar = uint(98) * 286 ether / (130 * 100 * 10);
         for(uint i = 0 ; i < 4 ; i++) {
-            assert(! canKeepersBite(cdp));
+            assertTrue(! canKeepersBite(cdp));
             uint dink = members[i].doPoolBite(pool, cdp, 26 ether, expectedEth);
-            assert(! canKeepersBite(cdp));
+            assertTrue(! canKeepersBite(cdp));
             assertEq(uint(dink), expectedEth);
             assertEq(vat.gem("ETH", address(members[i])), expectedEth);
             (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
@@ -732,8 +734,8 @@ contract PoolTest is BCdpManagerTestBase {
             assertEq(pool.rad(address(members[i])), (1000 ether - 50 ether * i - 26 ether) * RAY - 1);
         }
 
-        // jar should get 2% from 104 * 1.1 / 130
-        assertEq(vat.gem("ETH", address(jar)), (104 ether * 11 / 1300)/50);
+        // jar should get 98% from expectedEthInJar * 4
+        assertEq(vat.gem("ETH", address(jar)), expectedEthInJar * 4);
     }
 
     function doBite(FakeMember m, Pool pool, uint cdp, uint dart, bool rate) internal {
@@ -744,8 +746,8 @@ contract PoolTest is BCdpManagerTestBase {
         uint shrd = pool.shrd();
 
         // 10% chop
-        uint expectedJar = (dart * 1e18 * 110 / (price*100)) * shrn / shrd;
-        uint expectedInk = (dart * 1e18 * 110 / (price*100)) - expectedJar;
+        uint expectedInk = (dart * 1e18 * 110 / (price*100)) * shrn / shrd;
+        uint expectedJar = (dart * 1e18 * 110 / (price*100)) - expectedInk;
 
         if(rate) {
             (, uint currentRate,,,) = vat.ilks("ETH");
@@ -756,9 +758,9 @@ contract PoolTest is BCdpManagerTestBase {
         uint mInkBefore = vat.gem("ETH", address(m));
         uint jarInkBefore = vat.gem("ETH", address(jar));
 
-        assert(! canKeepersBite(cdp));
+        assertTrue(! canKeepersBite(cdp));
         m.doBite(pool, cdp, dart, expectedInk);
-        assert(! canKeepersBite(cdp));
+        assertTrue(! canKeepersBite(cdp));
 
         uint mInkAfter = vat.gem("ETH", address(m));
         uint jarInkAfter = vat.gem("ETH", address(jar));
@@ -766,8 +768,8 @@ contract PoolTest is BCdpManagerTestBase {
         //assertEq(mInkAfter - mInkBefore,expectedInk);
         //assertEq(jarInkAfter - jarInkBefore,expectedJar);
 
-        assert(mInkAfter - mInkBefore <= expectedInk + 2 && expectedInk <= 2 + mInkAfter - mInkBefore);
-        assert(jarInkAfter - jarInkBefore <= expectedJar + 2 && expectedJar <= 2 + jarInkAfter - jarInkBefore);
+        assertTrue(mInkAfter - mInkBefore <= expectedInk + 2 && expectedInk <= 2 + mInkAfter - mInkBefore);
+        assertTrue(jarInkAfter - jarInkBefore <= expectedJar + 2 && expectedJar <= 2 + jarInkAfter - jarInkBefore);
     }
 
     function testBiteInPartsThenUntop() public {
@@ -927,7 +929,7 @@ contract PoolTest is BCdpManagerTestBase {
         realPrice.set("ETH", 149 * 1e18);
 
         this.file(address(cat), "ETH", "chop", WAD + WAD/10);
-        pool.setProfitParams(65, 1000); // 6.5% goes to jar
+        pool.setProfitParams(65, 1000); // 6.5% goes to member
 
         jug.drip("ETH");
         (, uint currentRate,,,) = vat.ilks("ETH");
@@ -1001,10 +1003,11 @@ contract PoolTest is BCdpManagerTestBase {
 
         // uint ethBefore = vat.gem("ETH", address(members[0]));
         this.file(address(cat), "ETH", "chop", WAD + WAD/10);
-        pool.setProfitParams(2, 100); // 2% goes to jar
+        pool.setProfitParams(2, 100); // 2% goes to member
 
-        // for 26 ether we expect 26/140 * rate * 1.1 = 28.6/140 * rate, from which 98% goes to member
-        uint expectedEth = uint(98) * 286 ether * currRate / (100 * 1400 * RAY);
+        // for 26 ether we expect 26/140 * rate * 1.1 = 28.6/140 * rate, from which 2% goes to member
+        uint expectedEth = uint(2) * 286 ether * currRate / (100 * 1400 * RAY);
+        uint expectedEthInJar = uint(98) * 286 ether * currRate / (100 * 1400 * RAY);
 
         for(uint i = 0 ; i < 4 ; i++) {
             assert(! canKeepersBite(cdp));
@@ -1020,8 +1023,8 @@ contract PoolTest is BCdpManagerTestBase {
             assertAlmostEq(pool.rad(address(members[i]))/RAY, 1000 ether - 50 ether * i + perMemberCushionGain - (26 ether * currRate)/RAY);
         }
 
-        // jar should get 2%
-        assertEq(vat.gem("ETH", address(jar)), expectedEth * 4 * 2 / 98 - 1);
+        // jar should get 98%
+        assertEq(vat.gem("ETH", address(jar)), expectedEthInJar * 4);
     }
 
     function testAvailBiteWithDust() public {
@@ -1105,7 +1108,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         // uint ethBefore = vat.gem("ETH", address(members[0]));
         this.file(address(cat), "ETH", "chop", _1p1);
-        pool.setProfitParams(2, 100); // 2% goes to jar
+        pool.setProfitParams(2, 100); // 2% goes to member
 
         uint expectedAvailBite = daiAmt / members.length;
         uint expectedDust = daiAmt % members.length;
@@ -1119,30 +1122,31 @@ contract PoolTest is BCdpManagerTestBase {
         uint amt = daiAmt / members.length;
 
         this.file(address(cat), "ETH", "chop", WAD + WAD/10);
-        pool.setProfitParams(2, 100); // 2% goes to jar
+        pool.setProfitParams(2, 100); // 2% goes to member
 
-        // for 26 ether we expect 26/140 * rate * 1.1 = 28.6/140 * rate, from which 98% goes to member
+        // for 26 ether we expect 26/140 * rate * 1.1 = 28.6/140 * rate, from which 98% goes to jar
         jug.drip("ETH");
         (, uint currRate,,,) = vat.ilks("ETH");
-        uint expectedEth = uint(98) * amt * 11 * currRate / (100 * 1400 * RAY);
+        uint expectedEth = uint(2) * amt * 11 * currRate / (100 * 1400 * RAY);
+        uint expectedEthInJar = uint(98) * amt * 11 * currRate / (100 * 1400 * RAY);
 
-        assert(! canKeepersBite(cdp));
+        assertTrue(! canKeepersBite(cdp));
         members[0].doPoolBite(pool, cdp, amt + expectedDust, expectedEth);
-        assert(! canKeepersBite(cdp));
+        assertTrue(! canKeepersBite(cdp));
         members[1].doPoolBite(pool, cdp, amt, expectedEth);
-        assert(! canKeepersBite(cdp));
+        assertTrue(! canKeepersBite(cdp));
         members[2].doPoolBite(pool, cdp, amt, expectedEth);
-        assert(! canKeepersBite(cdp));
+        assertTrue(! canKeepersBite(cdp));
         members[3].doPoolBite(pool, cdp, amt, expectedEth);
-        assert(! canKeepersBite(cdp));
+        assertTrue(! canKeepersBite(cdp));
 
         assertEq(pool.availBite(cdp, address(members[0])), 0);
         assertEq(pool.availBite(cdp, address(members[1])), 0);
         assertEq(pool.availBite(cdp, address(members[2])), 0);
         assertEq(pool.availBite(cdp, address(members[3])), 0);
 
-        // jar should get 2% from 104 * 1.1 * 1.1 / 140
-        assertEq(vat.gem("ETH", address(jar)), expectedEth * 4 * 2 / 98 - 1);
+        // jar should get 98% from 104 * 1.1 * 1.1 / 140
+        assertTrue(vat.gem("ETH", address(jar)) >= expectedEthInJar * 4);
     }
 
     function testCalcCushionHigherSpot() public {
@@ -1219,6 +1223,19 @@ contract PoolTest is BCdpManagerTestBase {
         pool.setOwner(address(0x123));
 
         pool.emergencyExecute(address(d), data);
+    }
+
+    function testSetDaiToUsdPriceFeed() public {
+        address oldPriceFeed = address(pool.dai2usd());
+
+        FakeDaiToUsdPriceFeed dai2usdPriceFeed = new FakeDaiToUsdPriceFeed();
+        pool.setDaiToUsdPriceFeed(address(dai2usdPriceFeed));
+
+        address newPriceFeed = address(pool.dai2usd());
+        assertTrue(oldPriceFeed != address(0));
+        assertTrue(oldPriceFeed != newPriceFeed);
+        assertTrue(address(dai2usdPriceFeed) == newPriceFeed);
+        
     }
 
     // tests to do

@@ -384,8 +384,8 @@ contract BCdpManagerTest is BCdpManagerTestBase {
         // bite
         liquidator.doBite(pool, cdp, art/2, 0);
 
-        assertTrue(vat.gem("ETH", address(liquidator)) > 77e16/2);
-        assertTrue(vat.gem("ETH", address(jar)) > 77e14/2);
+        assertTrue(vat.gem("ETH", address(liquidator)) > 77e14/2);
+        assertTrue(vat.gem("ETH", address(jar)) > 77e16/2);
     }
 
     function testOpenCDP() public {
