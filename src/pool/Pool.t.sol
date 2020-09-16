@@ -123,7 +123,7 @@ contract PoolTest is BCdpManagerTestBase {
     }
 
     function almostEqual(uint a, uint b) internal returns(bool) {
-        assert(a < uint(1) << 200 && b < uint(1) << 200);
+        assertTrue(a < uint(1) << 200 && b < uint(1) << 200);
 
         if(a > b) return almostEqual(b, a);
         if(a * (1e6 + 1) < b * 1e6) return false;
@@ -269,19 +269,19 @@ contract PoolTest is BCdpManagerTestBase {
     // todo test real functionallity
     function testSetIlk() public {
         pool.setIlk("ETH-A", true);
-        assert(pool.ilks("ETH-A") == true);
+        assertTrue(pool.ilks("ETH-A") == true);
         pool.setIlk("ETH-A", false);
-        assert(pool.ilks("ETH-A") == false);
+        assertTrue(pool.ilks("ETH-A") == false);
 
         pool.setIlk("ETH-B", false);
         pool.setIlk("ETH-C", true);
         pool.setIlk("ETH-D", false);
         pool.setIlk("ETH-E", true);
 
-        assert(pool.ilks("ETH-B") == false);
-        assert(pool.ilks("ETH-C") == true);
-        assert(pool.ilks("ETH-D") == false);
-        assert(pool.ilks("ETH-E") == true);
+        assertTrue(pool.ilks("ETH-B") == false);
+        assertTrue(pool.ilks("ETH-C") == true);
+        assertTrue(pool.ilks("ETH-D") == false);
+        assertTrue(pool.ilks("ETH-E") == true);
     }
 
     // TODO - test real functionallity
@@ -312,7 +312,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         timeReset();
         while(one || two || three || four) {
-            assert(maxNumIter-- > 0);
+            assertTrue(maxNumIter-- > 0);
 
             address[] memory winners = pool.chooseMember(0, 404, getMembers());
             assertEq(winners.length, 1);
@@ -801,11 +801,11 @@ contract PoolTest is BCdpManagerTestBase {
         doBite(members[0], pool, cdp, 10 ether, false);
         doBite(members[0], pool, cdp, 3 ether, false);
 
-        assert(LiquidationMachine(manager).bitten(cdp));
+        assertTrue(LiquidationMachine(manager).bitten(cdp));
 
         // fast forward until no longer bitten
         forwardTime(60*60 + 1);
-        assert(! LiquidationMachine(manager).bitten(cdp));
+        assertTrue(! LiquidationMachine(manager).bitten(cdp));
 
         // do dummy operation to untop
         manager.frob(cdp, -1, 0);
@@ -944,11 +944,11 @@ contract PoolTest is BCdpManagerTestBase {
         doBite(members[0], pool, cdp, 10 ether, true);
         doBite(members[0], pool, cdp, 3 ether, true);
 
-        assert(LiquidationMachine(manager).bitten(cdp));
+        assertTrue(LiquidationMachine(manager).bitten(cdp));
 
         // fast forward until no longer bitten
         forwardTime(60*60 + 1);
-        assert(! LiquidationMachine(manager).bitten(cdp));
+        assertTrue(! LiquidationMachine(manager).bitten(cdp));
 
         // do dummy operation to untop
         manager.frob(cdp, -1, 0);
@@ -1010,9 +1010,9 @@ contract PoolTest is BCdpManagerTestBase {
         uint expectedEthInJar = uint(98) * 286 ether * currRate / (100 * 1400 * RAY);
 
         for(uint i = 0 ; i < 4 ; i++) {
-            assert(! canKeepersBite(cdp));
+            assertTrue(! canKeepersBite(cdp));
             uint dink = members[i].doPoolBite(pool, cdp, 26 ether, expectedEth);
-            assert(! canKeepersBite(cdp));
+            assertTrue(! canKeepersBite(cdp));
             assertEq(uint(dink), expectedEth);
             assertEq(vat.gem("ETH", address(members[i])), expectedEth);
             (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
@@ -1194,7 +1194,7 @@ contract PoolTest is BCdpManagerTestBase {
         (,uint currRate,,,) = vat.ilks("ETH");
 
         // make sure cushion is enough
-        assert((100 ether - dart) * currRate * 15 / 10 < 1 ether * 150 ether * 1e9);
+        assertTrue((100 ether - dart) * currRate * 15 / 10 < 1 ether * 150 ether * 1e9);
 
         // make sure cushion is precise
         assertEq(1 + radToWei((100 ether - dart + 1 ether) * currRate * 15 / 10), radToWei(1 ether * 150 ether * 1e9));
