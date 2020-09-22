@@ -27,9 +27,17 @@ contract GovernanceExecutor is DSAuth, Math {
      * @dev Request pool contract upgrade
      * @param pool Address of new pool contract
      */
-    function reqPoolUpgrade(address pool) external auth {
+    function reqUpgradePool(address pool) external auth {
         requests[pool] = now;
         emit RequestPoolUpgrade(pool);
+    }
+
+    /**
+     * @dev Drop upgrade pool request
+     * @param pool Address of pool contract
+     */
+    function dropUpgradePool(address pool) external auth {
+        delete requests[pool];
     }
 
     /**
