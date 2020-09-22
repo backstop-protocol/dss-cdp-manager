@@ -9,6 +9,7 @@ contract GovernanceExecutor is DSAuth, Math {
     BCdpManager public man;
     uint public delay;
     mapping(address => uint) public requests;
+    address public governance;
 
     event RequestPoolUpgrade(address indexed pool);
     event PoolUpgraded(address indexed pool);
@@ -18,8 +19,12 @@ contract GovernanceExecutor is DSAuth, Math {
         delay = delay_;
     }
 
-    // TODO
-    function doTransferAdmin(address owner) external auth {
+    /**
+     * @dev Transfer admin of BCdpManager
+     * @param owner New admin address
+     */
+    function doTransferAdmin(address owner) external {
+        require(msg.sender == governance, "unauthorized");
         man.setOwner(owner);
     }
 
@@ -50,7 +55,7 @@ contract GovernanceExecutor is DSAuth, Math {
         require(now >= add(reqTime, delay), "delay-not-over");
         
         delete requests[pool];
-        emit PoolUpgraded(pool);
         man.setPoolContract(pool);
+        emit PoolUpgraded(pool);
     }
 }
