@@ -1,33 +1,48 @@
 pragma solidity ^0.5.12;
 
+import { DSAuth } from "ds-auth/auth.sol";
 import { BCdpManager } from "../BCdpManager.sol";
+import { Math } from "../Math.sol";
 
-contract GovernanceExecutor {
+contract GovernanceExecutor is DSAuth, Math {
 
     BCdpManager public man;
-    address public poolProxy;
-    address public trasferProxy;
+    uint public delay;
+    mapping(address => uint) public requests;
 
-    modifier onlyProxy(address proxy) {
-        require(msg.sender == proxy, "unauthorized-call");
-        _;
-    }
+    event RequestPoolUpgrade(address indexed pool);
+    event PoolUpgraded(address indexed pool);
 
-    constructor(
-        address man_,
-        address poolProxy_,
-        address trasferProxy_
-    ) public {
+    constructor(address man_, uint delay_) public {
         man = BCdpManager(man_);
-        poolProxy = poolProxy_;
-        trasferProxy = trasferProxy_;
+        delay = delay_;
     }
 
-    function doTransferAdmin(address owner) external onlyProxy(trasferProxy) {
+    // TODO
+    function doTransferAdmin(address owner) external auth {
         man.setOwner(owner);
     }
 
-    function doSetPool(address pool) external onlyProxy(poolProxy) {
+    /**
+     * @dev Request pool contract upgrade
+     * @param pool Address of new pool contract
+     */
+    function reqPoolUpgrade(address pool) external auth {
+        requests[pool] = now;
+        emit RequestPoolUpgrade(pool);
+    }
+
+    /**
+     * @dev Execute pool contract upgrade after delay
+     * @param pool Address of the new pool contract
+     */
+    function execUpgradePool(address pool) external auth {
+        uint reqTime = requests[pool];
+        require(reqTime != 0, "request-not-valid");
+        require(now >= add(reqTime, delay), "delay-not-over");
+        
+        delete requests[pool];
+        emit PoolUpgraded(pool);
         man.setPoolContract(pool);
     }
 }
