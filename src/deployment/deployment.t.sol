@@ -174,7 +174,7 @@ contract UserDeployment {
 
         UserInfo _userInfo = new UserInfo(DAI, WETH);
 
-        JarConnector _jarConnector = new JarConnector(address(man), ETH_JOIN, "ETH", [uint(30 days), uint(5 * 30 days)]);
+        JarConnector _jarConnector = new JarConnector(address(man), ETH_JOIN, "ETH-A", [uint(30 days), uint(5 * 30 days)]);
         _score.transferOwnership(address(_jarConnector));
         _jarConnector.spin();
         
