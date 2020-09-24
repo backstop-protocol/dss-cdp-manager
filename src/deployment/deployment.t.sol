@@ -6,6 +6,9 @@ import { BCdpScore } from "./../BCdpScore.sol";
 import { Pool } from "./../pool/Pool.sol";
 import { FakeMember } from "./../pool/Pool.t.sol";
 import { LiquidationMachine, PriceFeedLike } from "./../LiquidationMachine.sol";
+import { UserInfo } from "./../info/UserInfo.sol";
+import { JarConnector } from "./../JarConnector.sol";
+import { Jar } from "./../../user-rating/contracts/jar/Jar.sol";
 
 
 contract PriceFeed is DSValue {
@@ -154,8 +157,14 @@ contract UserDeployment {
     address constant END = 0x24728AcF2E2C403F5d2db4Df6834B8998e56aA5F;
     address constant POOL = address(0x0);
     address constant REAL = 0x75dD74e8afE8110C8320eD397CcCff3B8134d981;
+    address constant DAI = address(0x0);
+    address constant WETH = address(0x0);
+    address constant ETH_JOIN = address(0x0);
 
     address public manager;
+    address public userInfo;
+    address public jar;
+    address public jarConnector;
 
     constructor() public {
         BCdpScore score = new BCdpScore();
@@ -164,6 +173,15 @@ contract UserDeployment {
         score.spin();
 
         manager = address(man);
+
+        UserInfo _userInfo = new UserInfo(DAI, WETH);
+        userInfo = address(_userInfo);
+
+        JarConnector _jarConnector = new JarConnector(manager, ETH_JOIN, "ETH", [uint(30 days), uint(5 * 30 days)]);
+        jarConnector = address(_jarConnector);
+
+        Jar _jar = new Jar(uint(1), uint(now + 30 days), jarConnector);
+        jar = address(_jar);
     }
 }
 
