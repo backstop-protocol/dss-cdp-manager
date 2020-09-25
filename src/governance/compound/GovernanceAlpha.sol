@@ -1,9 +1,12 @@
 pragma solidity ^0.5.16;
 pragma experimental ABIEncoderV2;
 
+/**
+ * @notice Contract code taken from Compound Governance Alpha
+ */
 contract GovernorAlpha {
     /// @notice The name of this contract
-    string public constant name = "Compound Governor Alpha";
+    string public constant name = "B.Protocol Governor Alpha";
 
     /// @notice The number of votes in support of a proposal required in order for a quorum to be reached and for a vote to succeed
     function quorumVotes() public pure returns (uint) { return 400000e18; } // 400,000 = 4% of Comp
@@ -23,8 +26,8 @@ contract GovernorAlpha {
     /// @notice The address of the Compound Protocol Timelock
     TimelockInterface public timelock;
 
-    /// @notice The address of the Compound governance token
-    CompInterface public comp;
+    /// @notice The address of the Score Connector
+    IScoreConnector public scoreConnector;
 
     /// @notice The address of the Governor Guardian
     address public guardian;
@@ -127,14 +130,14 @@ contract GovernorAlpha {
     /// @notice An event emitted when a proposal has been executed in the Timelock
     event ProposalExecuted(uint id);
 
-    constructor(address timelock_, address comp_, address guardian_) public {
+    constructor(address timelock_, address scoreConnector_, address guardian_) public {
         timelock = TimelockInterface(timelock_);
-        comp = CompInterface(comp_);
+        scoreConnector = IScoreConnector(scoreConnector_);
         guardian = guardian_;
     }
 
     function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) public returns (uint) {
-        require(comp.getPriorVotes(msg.sender, sub256(block.number, 1)) > proposalThreshold(), "GovernorAlpha::propose: proposer votes below proposal threshold");
+        require(scoreConnector.getPriorVotes(msg.sender, sub256(block.number, 1)) > proposalThreshold(), "GovernorAlpha::propose: proposer votes below proposal threshold");
         require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "GovernorAlpha::propose: proposal function information arity mismatch");
         require(targets.length != 0, "GovernorAlpha::propose: must provide actions");
         require(targets.length <= proposalMaxOperations(), "GovernorAlpha::propose: too many actions");
@@ -204,7 +207,7 @@ contract GovernorAlpha {
         require(state != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
 
         Proposal storage proposal = proposals[proposalId];
-        require(msg.sender == guardian || comp.getPriorVotes(proposal.proposer, sub256(block.number, 1)) < proposalThreshold(), "GovernorAlpha::cancel: proposer above threshold");
+        require(msg.sender == guardian || scoreConnector.getPriorVotes(proposal.proposer, sub256(block.number, 1)) < proposalThreshold(), "GovernorAlpha::cancel: proposer above threshold");
 
         proposal.canceled = true;
         for (uint i = 0; i < proposal.targets.length; i++) {
@@ -263,7 +266,7 @@ contract GovernorAlpha {
         Proposal storage proposal = proposals[proposalId];
         Receipt storage receipt = proposal.receipts[voter];
         require(receipt.hasVoted == false, "GovernorAlpha::_castVote: voter already voted");
-        uint96 votes = comp.getPriorVotes(voter, proposal.startBlock);
+        uint96 votes = scoreConnector.getPriorVotes(voter, proposal.startBlock);
 
         if (support) {
             proposal.forVotes = add256(proposal.forVotes, votes);
@@ -326,6 +329,6 @@ interface TimelockInterface {
     function executeTransaction(address target, uint value, string calldata signature, bytes calldata data, uint eta) external payable returns (bytes memory);
 }
 
-interface CompInterface {
+interface IScoreConnector {
     function getPriorVotes(address account, uint blockNumber) external view returns (uint96);
 }
