@@ -9,10 +9,14 @@ contract GovernorAlpha {
     string public constant name = "B.Protocol Governor Alpha";
 
     /// @notice The number of votes in support of a proposal required in order for a quorum to be reached and for a vote to succeed
-    function quorumVotes() public pure returns (uint) { return 400000e18; } // 400,000 = 4% of Comp
+    function quorumVotes() public view returns (uint) { 
+        return add256(scoreConnector.getGlobalScore() / 2, 1); // 50% of score
+    }
 
     /// @notice The number of votes required in order for a voter to become a proposer
-    function proposalThreshold() public pure returns (uint) { return 100000e18; } // 100,000 = 1% of Comp
+    function proposalThreshold() public view returns (uint) {
+        return add256(scoreConnector.getGlobalScore() / 100, 1); // 1% of total score
+    }
 
     /// @notice The maximum number of actions that can be included in a proposal
     function proposalMaxOperations() public pure returns (uint) { return 10; } // 10 actions
@@ -331,4 +335,5 @@ interface TimelockInterface {
 
 interface IScoreConnector {
     function getPriorVotes(address account, uint blockNumber) external view returns (uint96);
+    function getGlobalScore() external view returns (uint);
 }
