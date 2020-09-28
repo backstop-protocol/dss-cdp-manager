@@ -106,7 +106,7 @@ contract GovernorAlpha {
         bool support;
 
         /// @notice The number of votes the voter had, which were cast
-        uint96 votes;
+        uint votes;
     }
 
     /// @notice Possible states that a proposal may be in
@@ -161,7 +161,8 @@ contract GovernorAlpha {
     }
 
     function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) public returns (uint) {
-        require(scoreConnector.getPriorVotes(msg.sender, sub256(block.number, 1)) > proposalThreshold(now), "GovernorAlpha::propose: proposer votes below proposal threshold");
+        uint proposerTotalScore = scoreConnector.getUserTotalScore(msg.sender, now);
+        require(proposerTotalScore > proposalThreshold(now), "GovernorAlpha::propose: proposer votes below proposal threshold");
         require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "GovernorAlpha::propose: proposal function information arity mismatch");
         require(targets.length != 0, "GovernorAlpha::propose: must provide actions");
         require(targets.length <= proposalMaxOperations(), "GovernorAlpha::propose: too many actions");
@@ -232,7 +233,8 @@ contract GovernorAlpha {
         require(state != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
 
         Proposal storage proposal = proposals[proposalId];
-        require(msg.sender == guardian || scoreConnector.getPriorVotes(proposal.proposer, sub256(block.number, 1)) < proposalThreshold(proposal.timestamp), "GovernorAlpha::cancel: proposer above threshold");
+        uint proposerTotalScore = scoreConnector.getUserTotalScore(proposal.proposer, proposal.timestamp);
+        require(msg.sender == guardian || proposerTotalScore < proposalThreshold(proposal.timestamp), "GovernorAlpha::cancel: proposer above threshold");
 
         proposal.canceled = true;
         for (uint i = 0; i < proposal.targets.length; i++) {
@@ -304,7 +306,7 @@ contract GovernorAlpha {
         require(receipt.hasVoted == false, "GovernorAlpha::_castVote: voter already voted");
         require(voter == man.owns(cdp), "GovernorAlpha::_castVote: voter not owns cdp");
         
-        uint96 votes = scoreConnector.getPriorVotes(voter, proposal.startBlock);
+        uint votes = scoreConnector.getPriorVotes(cdp, proposal.timestamp);
 
         if (support) {
             proposal.forVotes = add256(proposal.forVotes, votes);
@@ -410,6 +412,7 @@ interface TimelockInterface {
 }
 
 interface IScoreConnector {
-    function getPriorVotes(address account, uint blockNumber) external view returns (uint96);
+    function getPriorVotes(uint cdp, uint proposalTime) external view returns (uint);
     function getGlobalScore(uint endTime) external view returns (uint);
+    function getUserTotalScore(address user, uint endTime) external view returns (uint);
 }

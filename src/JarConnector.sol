@@ -2,6 +2,7 @@ pragma solidity ^0.5.12;
 
 import { BCdpScore } from "./BCdpScore.sol";
 import { BCdpManager } from "./BCdpManager.sol";
+import { Math } from "./Math.sol";
 
 interface GemJoinLike {
     function exit(address, uint) external;
@@ -11,7 +12,7 @@ interface VatLike {
     function gem(bytes32 ilk, address user) external view returns(uint);
 }
 
-contract JarConnector {
+contract JarConnector is Math {
     GemJoinLike ethJoin;
     BCdpScore   score;
     BCdpManager man;
@@ -96,6 +97,27 @@ contract JarConnector {
         return score.getArtScore(cdp, ilk, endTime, start[1]) + _getFirstRoundUserScore(cdp, start[1]);
     }
 
+    /**
+     * @dev Gets user's total score for all his cdps
+     * @notice Function is used in Governance
+     * @param user The address of the user
+     * @param endTime The end time to get the user's score
+     * @return The total score of the user's all cdps
+     */
+    function getUserTotalScore(address user, uint endTime) public view returns (uint) {
+        uint count = man.count(user);
+        require(count > 0, "no-cdp-owns-by-user");
+
+        uint first = man.first(user);
+        uint totalScore = getUserScore(first, endTime);
+
+        for(uint i = 0; i < count - 1; i++) {
+            (, uint cdp) = man.list(first);
+            totalScore = add(totalScore, getUserScore(cdp, endTime));
+        }
+        return totalScore;
+    }
+
     function getGlobalScore() external view returns (uint) {
         if(round == 0) return 0;
 
@@ -124,15 +146,8 @@ contract JarConnector {
         return score.getArtGlobalScore(ilk, endTime, start[1]) + _getFirstRoundGlobalScore(start[1]);
     }
 
-    function getPriorVotes(address account, uint blockNumber, uint proposalTime) external view returns (uint96) {
-        blockNumber; // shh
-        
-        // Get score from `proposalTime` to `start[0]`
-        // TODO get cdp from account
-        uint cdp;
-        //TODO
-        getUserScore(cdp, proposalTime);
-        return 0;
+    function getPriorVotes(uint cdp, uint proposalTime) external view returns (uint) {
+        return getUserScore(cdp, proposalTime);
     }
 
     function toUser(bytes32 user) external view returns (address) {
