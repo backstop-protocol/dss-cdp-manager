@@ -1,6 +1,8 @@
 pragma solidity ^0.5.16;
 pragma experimental ABIEncoderV2;
 
+import { BCdpManager } from "../../BCdpManager.sol";
+
 /**
  * @notice Contract code taken from Compound Governance Alpha
  */
@@ -10,11 +12,13 @@ contract GovernorAlpha {
 
     /// @notice The number of votes in support of a proposal required in order for a quorum to be reached and for a vote to succeed
     function quorumVotes() public view returns (uint) { 
+        // TODO
         return add256(scoreConnector.getGlobalScore() / 2, 1); // 50% of score
     }
 
     /// @notice The number of votes required in order for a voter to become a proposer
     function proposalThreshold() public view returns (uint) {
+        // TODO
         return add256(scoreConnector.getGlobalScore() / 100, 1); // 1% of total score
     }
 
@@ -33,11 +37,17 @@ contract GovernorAlpha {
     /// @notice The address of the Score Connector
     IScoreConnector public scoreConnector;
 
+    /// @notice The address of the BCdpManager
+    BCdpManager public man;
+
     /// @notice The address of the Governor Guardian
     address public guardian;
 
     /// @notice The total number of proposals
     uint public proposalCount;
+
+    /// @notice The next nonce to use by voter to sign
+    mapping (address => uint) public nonces;
 
     struct Proposal {
         /// @notice Unique id for looking up a proposal
@@ -80,10 +90,13 @@ contract GovernorAlpha {
         bool executed;
 
         /// @notice Receipts of ballots for the entire set of voters
-        mapping (address => Receipt) receipts;
+        //mapping (address => Receipt) receipts;
+
+        /// @notice Receipts of ballots per CDP
+        mapping (uint => Receipt) receipts;
     }
 
-    /// @notice Ballot receipt record for a voter
+    /// @notice Ballot receipt record for a CDP
     struct Receipt {
         /// @notice Whether or not a vote has been cast
         bool hasVoted;
@@ -117,13 +130,19 @@ contract GovernorAlpha {
     bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
 
     /// @notice The EIP-712 typehash for the ballot struct used by the contract
-    bytes32 public constant BALLOT_TYPEHASH = keccak256("Ballot(uint256 proposalId,bool support)");
+    bytes32 public constant BALLOT_TYPEHASH = keccak256("Ballot(uint256 proposalId,uint256 cdp,bool support,uint256 nonce)");
+
+    /// @notice The EIP-712 typehash for the ballot cancel struct used by the contract
+    bytes32 public constant BALLOT_CANCEL_TYPEHASH = keccak256("BallotCancel(uint256 proposalId,uint256 cdp,uint256 nonce)");
 
     /// @notice An event emitted when a new proposal is created
     event ProposalCreated(uint id, address proposer, address[] targets, uint[] values, string[] signatures, bytes[] calldatas, uint startBlock, uint endBlock, string description);
 
     /// @notice An event emitted when a vote has been cast on a proposal
-    event VoteCast(address voter, uint proposalId, bool support, uint votes);
+    event VoteCast(address voter, uint proposalId, uint cdp, bool support, uint votes);
+
+    /// @notice An event emitted when a vote has been cancelled on a proposal
+    event VoteCancelled(address voter, uint proposalId, uint cdp, uint votes);
 
     /// @notice An event emitted when a proposal has been canceled
     event ProposalCanceled(uint id);
@@ -226,8 +245,8 @@ contract GovernorAlpha {
         return (p.targets, p.values, p.signatures, p.calldatas);
     }
 
-    function getReceipt(uint proposalId, address voter) public view returns (Receipt memory) {
-        return proposals[proposalId].receipts[voter];
+    function getReceipt(uint proposalId, uint cdp) public view returns (Receipt memory) {
+        return proposals[proposalId].receipts[cdp];
     }
 
     function state(uint proposalId) public view returns (ProposalState) {
@@ -252,24 +271,37 @@ contract GovernorAlpha {
         }
     }
 
-    function castVote(uint proposalId, bool support) public {
-        return _castVote(msg.sender, proposalId, support);
+    function castVote(uint proposalId, uint cdp, bool support) public {
+        return _castVote(msg.sender, proposalId, cdp, support);
     }
 
-    function castVoteBySig(uint proposalId, bool support, uint8 v, bytes32 r, bytes32 s) public {
+    function castVotes(uint[] calldata proposalIds, uint[] calldata cdps, bool[] calldata support) external {
+        require(proposalIds.length == cdps.length, "GovernorAlpha::castVotes: inconsistant array length");
+        require(cdps.length == support.length, "GovernorAlpha::castVotes: inconsistant array length");
+        for(uint i = 0; i < cdps.length; i++) {
+            _castVote(msg.sender, proposalIds[i], cdps[i], support[i]);
+        }
+    }
+
+    function castVoteBySig(address signatory, uint proposalId, uint cdp, bool support, uint8 v, bytes32 r, bytes32 s) public {
         bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name)), getChainId(), address(this)));
-        bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, support));
+        // Voter allowed to cancel his vote and re-vote. To protect replay protection, used nonce
+        uint nonce = nonces[signatory]++;
+        bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, cdp, support, nonce));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
-        address signatory = ecrecover(digest, v, r, s);
-        require(signatory != address(0), "GovernorAlpha::castVoteBySig: invalid signature");
-        return _castVote(signatory, proposalId, support);
+        address signer = ecrecover(digest, v, r, s);
+        require(signer != address(0), "GovernorAlpha::castVoteBySig: invalid signature");
+        require(signatory == signer, "GovernorAlpha::castVoteBySig: signature not matched");
+        return _castVote(signatory, proposalId, cdp, support);
     }
 
-    function _castVote(address voter, uint proposalId, bool support) internal {
+    function _castVote(address voter, uint proposalId, uint cdp, bool support) internal {
         require(state(proposalId) == ProposalState.Active, "GovernorAlpha::_castVote: voting is closed");
         Proposal storage proposal = proposals[proposalId];
-        Receipt storage receipt = proposal.receipts[voter];
+        Receipt storage receipt = proposal.receipts[cdp];
         require(receipt.hasVoted == false, "GovernorAlpha::_castVote: voter already voted");
+        require(voter == man.owns(cdp), "GovernorAlpha::_castVote: voter not owns cdp");
+        
         uint96 votes = scoreConnector.getPriorVotes(voter, proposal.startBlock);
 
         if (support) {
@@ -282,7 +314,49 @@ contract GovernorAlpha {
         receipt.support = support;
         receipt.votes = votes;
 
-        emit VoteCast(voter, proposalId, support, votes);
+        emit VoteCast(voter, proposalId, cdp, support, votes);
+    }
+
+    function cancelVoteBySig(address signatory, uint proposalId, uint cdp, uint8 v, bytes32 r, bytes32 s) public {
+        bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name)), getChainId(), address(this)));
+        uint nonce = nonces[signatory]++;
+        bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, cdp, nonce));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+        address signer = ecrecover(digest, v, r, s);
+        require(signer != address(0), "GovernorAlpha::cancelVoteBySig: invalid signature");
+        require(signatory == signer, "GovernorAlpha::cancelVoteBySig: signature not matched");
+        return _cancelVote(signatory, proposalId, cdp);
+    }
+
+    function cancelVote(uint proposalId, uint cdp) public {
+        _cancelVote(msg.sender, proposalId, cdp);
+    }
+
+    function cancelVotes(uint[] calldata proposalIds, uint[] calldata cdps) external {
+        require(proposalIds.length == cdps.length, "GovernorAlpha::cancelVotes: inconsistant array length");
+        for(uint i = 0; i < cdps.length; i++) {
+            _cancelVote(msg.sender, proposalIds[i], cdps[i]);
+        }
+    }
+
+    function _cancelVote(address voter, uint proposalId, uint cdp) internal {
+        require(state(proposalId) == ProposalState.Active, "GovernorAlpha::_castVote: voting is closed");
+        Proposal storage proposal = proposals[proposalId];
+        Receipt memory receipt = proposal.receipts[cdp];
+        require(receipt.hasVoted == true, "GovernorAlpha::_castVote: voter not voted");
+        require(voter == man.owns(cdp), "GovernorAlpha::_castVote: voter not owns cdp");
+
+        uint votes = receipt.votes;
+        bool support = receipt.support;
+        if (support) {
+            proposal.forVotes = sub256(proposal.forVotes, votes);
+        } else {
+            proposal.againstVotes = sub256(proposal.againstVotes, votes);
+        }
+
+        delete proposal.receipts[cdp];
+
+        emit VoteCancelled(voter, proposalId, cdp, votes);
     }
 
     function __acceptAdmin() public {
