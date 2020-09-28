@@ -11,15 +11,13 @@ contract GovernorAlpha {
     string public constant name = "B.Protocol Governor Alpha";
 
     /// @notice The number of votes in support of a proposal required in order for a quorum to be reached and for a vote to succeed
-    function quorumVotes() public view returns (uint) { 
-        // TODO
-        return add256(scoreConnector.getGlobalScore() / 2, 1); // 50% of score
+    function quorumVotes(uint timestamp) public view returns (uint) { 
+        return add256(scoreConnector.getGlobalScore(timestamp) / 2, 1); // 50% of score
     }
 
     /// @notice The number of votes required in order for a voter to become a proposer
-    function proposalThreshold() public view returns (uint) {
-        // TODO
-        return add256(scoreConnector.getGlobalScore() / 100, 1); // 1% of total score
+    function proposalThreshold(uint timestamp) public view returns (uint) {
+        return add256(scoreConnector.getGlobalScore(timestamp) / 100, 1); // 1% of total score
     }
 
     /// @notice The maximum number of actions that can be included in a proposal
@@ -52,6 +50,9 @@ contract GovernorAlpha {
     struct Proposal {
         /// @notice Unique id for looking up a proposal
         uint id;
+
+        /// @notice Proposal timestamp when created
+        uint timestamp;
 
         /// @notice Creator of the proposal
         address proposer;
@@ -160,7 +161,7 @@ contract GovernorAlpha {
     }
 
     function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) public returns (uint) {
-        require(scoreConnector.getPriorVotes(msg.sender, sub256(block.number, 1)) > proposalThreshold(), "GovernorAlpha::propose: proposer votes below proposal threshold");
+        require(scoreConnector.getPriorVotes(msg.sender, sub256(block.number, 1)) > proposalThreshold(now), "GovernorAlpha::propose: proposer votes below proposal threshold");
         require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "GovernorAlpha::propose: proposal function information arity mismatch");
         require(targets.length != 0, "GovernorAlpha::propose: must provide actions");
         require(targets.length <= proposalMaxOperations(), "GovernorAlpha::propose: too many actions");
@@ -178,6 +179,7 @@ contract GovernorAlpha {
         proposalCount++;
         Proposal memory newProposal = Proposal({
             id: proposalCount,
+            timestamp: now,
             proposer: msg.sender,
             eta: 0,
             targets: targets,
@@ -230,7 +232,7 @@ contract GovernorAlpha {
         require(state != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
 
         Proposal storage proposal = proposals[proposalId];
-        require(msg.sender == guardian || scoreConnector.getPriorVotes(proposal.proposer, sub256(block.number, 1)) < proposalThreshold(), "GovernorAlpha::cancel: proposer above threshold");
+        require(msg.sender == guardian || scoreConnector.getPriorVotes(proposal.proposer, sub256(block.number, 1)) < proposalThreshold(proposal.timestamp), "GovernorAlpha::cancel: proposer above threshold");
 
         proposal.canceled = true;
         for (uint i = 0; i < proposal.targets.length; i++) {
@@ -258,7 +260,7 @@ contract GovernorAlpha {
             return ProposalState.Pending;
         } else if (block.number <= proposal.endBlock) {
             return ProposalState.Active;
-        } else if (proposal.forVotes <= proposal.againstVotes || proposal.forVotes < quorumVotes()) {
+        } else if (proposal.forVotes <= proposal.againstVotes || proposal.forVotes < quorumVotes(proposal.timestamp)) {
             return ProposalState.Defeated;
         } else if (proposal.eta == 0) {
             return ProposalState.Succeeded;
@@ -409,5 +411,5 @@ interface TimelockInterface {
 
 interface IScoreConnector {
     function getPriorVotes(address account, uint blockNumber) external view returns (uint96);
-    function getGlobalScore() external view returns (uint);
+    function getGlobalScore(uint endTime) external view returns (uint);
 }
