@@ -106,7 +106,7 @@ contract JarConnector is Math {
      */
     function getUserTotalScore(address user, uint endTime) public view returns (uint) {
         uint count = man.count(user);
-        require(count > 0, "no-cdp-owns-by-user");
+        require(count > 0, "no-cdp-owned-by-user");
 
         uint first = man.first(user);
         uint totalScore = getUserScore(first, endTime);
