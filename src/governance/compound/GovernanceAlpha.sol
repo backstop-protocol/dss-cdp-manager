@@ -90,22 +90,14 @@ contract GovernorAlpha {
         /// @notice Flag marking whether the proposal has been executed
         bool executed;
 
-        /// @notice Receipts of ballots for the entire set of voters
-        //mapping (address => Receipt) receipts;
-
         /// @notice Receipts of ballots per CDP
         mapping (uint => Receipt) receipts;
     }
 
     /// @notice Ballot receipt record for a CDP
     struct Receipt {
-        /// @notice Whether or not a vote has been cast
         bool hasVoted;
-
-        /// @notice Whether or not the voter supports the proposal
         bool support;
-
-        /// @notice The number of votes the voter had, which were cast
         uint votes;
     }
 
@@ -126,15 +118,6 @@ contract GovernorAlpha {
 
     /// @notice The latest proposal for each proposer
     mapping (address => uint) public latestProposalIds;
-
-    /// @notice The EIP-712 typehash for the contract's domain
-    bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
-
-    /// @notice The EIP-712 typehash for the ballot struct used by the contract
-    bytes32 public constant BALLOT_TYPEHASH = keccak256("Ballot(uint256 proposalId,uint256 cdp,bool support,uint256 nonce)");
-
-    /// @notice The EIP-712 typehash for the ballot cancel struct used by the contract
-    bytes32 public constant BALLOT_CANCEL_TYPEHASH = keccak256("BallotCancel(uint256 proposalId,uint256 cdp,uint256 nonce)");
 
     /// @notice An event emitted when a new proposal is created
     event ProposalCreated(uint id, address proposer, address[] targets, uint[] values, string[] signatures, bytes[] calldatas, uint startBlock, uint endBlock, string description);
@@ -287,18 +270,6 @@ contract GovernorAlpha {
         }
     }
 
-    function castVoteBySig(address signatory, uint proposalId, uint cdp, bool support, uint8 v, bytes32 r, bytes32 s) public {
-        bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name)), getChainId(), address(this)));
-        // Voter allowed to cancel his vote and re-vote. To protect replay protection, used nonce
-        uint nonce = nonces[signatory]++;
-        bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, cdp, support, nonce));
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
-        address signer = ecrecover(digest, v, r, s);
-        require(signer != address(0), "GovernorAlpha::castVoteBySig: invalid signature");
-        require(signatory == signer, "GovernorAlpha::castVoteBySig: signature not matched");
-        return _castVote(signatory, proposalId, cdp, support);
-    }
-
     function _castVote(address voter, uint proposalId, uint cdp, bool support) internal {
         require(state(proposalId) == ProposalState.Active, "GovernorAlpha::_castVote: voting is closed");
         Proposal storage proposal = proposals[proposalId];
@@ -319,17 +290,6 @@ contract GovernorAlpha {
         receipt.votes = votes;
 
         emit VoteCast(voter, proposalId, cdp, support, votes);
-    }
-
-    function cancelVoteBySig(address signatory, uint proposalId, uint cdp, uint8 v, bytes32 r, bytes32 s) public {
-        bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name)), getChainId(), address(this)));
-        uint nonce = nonces[signatory]++;
-        bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, cdp, nonce));
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
-        address signer = ecrecover(digest, v, r, s);
-        require(signer != address(0), "GovernorAlpha::cancelVoteBySig: invalid signature");
-        require(signatory == signer, "GovernorAlpha::cancelVoteBySig: signature not matched");
-        return _cancelVote(signatory, proposalId, cdp);
     }
 
     function cancelVote(uint proposalId, uint cdp) public {
@@ -392,12 +352,6 @@ contract GovernorAlpha {
     function sub256(uint256 a, uint256 b) internal pure returns (uint) {
         require(b <= a, "subtraction underflow");
         return a - b;
-    }
-
-    function getChainId() internal pure returns (uint) {
-        uint chainId;
-        assembly { chainId := chainid() }
-        return chainId;
     }
 }
 
