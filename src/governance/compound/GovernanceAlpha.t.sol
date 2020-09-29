@@ -14,13 +14,14 @@ contract GovernanceAlphaTest is DSTest {
     FakeScore score;
     address guardian;
     uint constant DELAY = 3 days;
+    uint constant WAITING_PERIOD = 6 * 30 days; // 6 months
 
     function setUp() public {
         timelock = new Timelock(guardian, DELAY);
         score = new FakeScore();
         guardian = msg.sender;
 
-        governor = new GovernorAlpha(address(timelock), address(score), guardian);
+        governor = new GovernorAlpha(address(timelock), address(score), guardian, WAITING_PERIOD);
     }
 
     function testDeployment() public {
@@ -32,6 +33,6 @@ contract GovernanceAlphaTest is DSTest {
     }
 
     function testVotersVote() public {
-        
+
     }
 }
