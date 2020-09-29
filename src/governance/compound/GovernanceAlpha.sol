@@ -84,10 +84,12 @@ contract GovernorAlpha is Math {
 
     function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) public returns (uint) {
         require(now > add(deployedTimestamp, waitingPeriod), "waiting-period-not-over");
-        require(msg.sender == guardian, "only-guardian-allowed-to-propose");
         require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "array-size-mismatch");
         require(targets.length != 0, "no-actions-given");
         require(targets.length <= MAX_OPERATIONS, "too-many-actions");
+        uint proposerTotalScore = scoreConnector.getUserTotalScore(msg.sender, now);
+        // take global score before `now`
+        require(proposerTotalScore >= proposalThreshold(now), "insuffecient-score-of-proposer"); 
 
         // add 15 seconds, to start this proposal from approx next block
         uint startTime = now + 15; 
@@ -250,6 +252,11 @@ contract GovernorAlpha is Math {
         delete proposal.receipts[cdp];
 
         emit VoteCancelled(voter, proposalId, cdp, votes);
+    }
+
+    function reCastVote(uint proposalId, uint cdp, bool support) public {
+        _cancelVote(msg.sender, proposalId, cdp);
+        _castVote(msg.sender, proposalId, cdp, support);
     }
 
     function __acceptAdmin() public {
