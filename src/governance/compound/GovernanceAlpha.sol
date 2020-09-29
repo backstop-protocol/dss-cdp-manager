@@ -3,12 +3,7 @@ pragma experimental ABIEncoderV2;
 
 import { BCdpManager } from "../../BCdpManager.sol";
 
-/**
- * @notice Contract code taken from Compound Governance Alpha
- */
 contract GovernorAlpha {
-    /// @notice The name of this contract
-    string public constant name = "B.Protocol Governor Alpha";
 
     /// @notice The number of votes in support of a proposal required in order for a quorum to be reached and for a vote to succeed
     function quorumVotes(uint timestamp) public view returns (uint) { 
@@ -29,79 +24,47 @@ contract GovernorAlpha {
     /// @notice The duration of voting on a proposal, in blocks
     function votingPeriod() public pure returns (uint) { return 17280; } // ~3 days in blocks (assuming 15s blocks)
 
-    /// @notice The address of the Compound Protocol Timelock
+    uint public constant WAITING_PERIOD = 6 * 30 days; // approx 6 months
+    
     TimelockInterface public timelock;
-
-    /// @notice The address of the Score Connector
     IScoreConnector public scoreConnector;
-
-    /// @notice The address of the BCdpManager
     BCdpManager public man;
 
-    /// @notice The address of the Governor Guardian
     address public guardian;
-
-    /// @notice The total number of proposals
     uint public proposalCount;
-
-    /// @notice The next nonce to use by voter to sign
-    mapping (address => uint) public nonces;
+    uint public deployedTimestamp;
 
     struct Proposal {
-        /// @notice Unique id for looking up a proposal
         uint id;
-
-        /// @notice Proposal timestamp when created
         uint timestamp;
-
-        /// @notice Creator of the proposal
         address proposer;
-
-        /// @notice The timestamp that the proposal will be available for execution, set once the vote succeeds
         uint eta;
 
-        /// @notice the ordered list of target addresses for calls to be made
+        // function calls to be executed on target
         address[] targets;
-
-        /// @notice The ordered list of values (i.e. msg.value) to be passed to the calls to be made
         uint[] values;
-
-        /// @notice The ordered list of function signatures to be called
         string[] signatures;
-
-        /// @notice The ordered list of calldata to be passed to each call
         bytes[] calldatas;
 
-        /// @notice The block at which voting begins: holders must delegate their votes prior to this block
         uint startBlock;
-
-        /// @notice The block at which voting ends: votes must be cast prior to this block
         uint endBlock;
 
-        /// @notice Current number of votes in favor of this proposal
+        // votes
         uint forVotes;
-
-        /// @notice Current number of votes in opposition to this proposal
         uint againstVotes;
 
-        /// @notice Flag marking whether the proposal has been canceled
         bool canceled;
-
-        /// @notice Flag marking whether the proposal has been executed
         bool executed;
 
-        /// @notice Receipts of ballots per CDP
         mapping (uint => Receipt) receipts;
     }
 
-    /// @notice Ballot receipt record for a CDP
     struct Receipt {
         bool hasVoted;
         bool support;
         uint votes;
     }
 
-    /// @notice Possible states that a proposal may be in
     enum ProposalState {
         Pending,
         Active,
@@ -113,49 +76,30 @@ contract GovernorAlpha {
         Executed
     }
 
-    /// @notice The official record of all proposals ever proposed
     mapping (uint => Proposal) public proposals;
 
-    /// @notice The latest proposal for each proposer
-    mapping (address => uint) public latestProposalIds;
-
-    /// @notice An event emitted when a new proposal is created
     event ProposalCreated(uint id, address proposer, address[] targets, uint[] values, string[] signatures, bytes[] calldatas, uint startBlock, uint endBlock, string description);
-
-    /// @notice An event emitted when a vote has been cast on a proposal
     event VoteCast(address voter, uint proposalId, uint cdp, bool support, uint votes);
-
-    /// @notice An event emitted when a vote has been cancelled on a proposal
     event VoteCancelled(address voter, uint proposalId, uint cdp, uint votes);
-
-    /// @notice An event emitted when a proposal has been canceled
     event ProposalCanceled(uint id);
-
-    /// @notice An event emitted when a proposal has been queued in the Timelock
     event ProposalQueued(uint id, uint eta);
-
-    /// @notice An event emitted when a proposal has been executed in the Timelock
     event ProposalExecuted(uint id);
 
     constructor(address timelock_, address scoreConnector_, address guardian_) public {
         timelock = TimelockInterface(timelock_);
         scoreConnector = IScoreConnector(scoreConnector_);
         guardian = guardian_;
+        deployedTimestamp = now;
     }
 
     function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) public returns (uint) {
+        require(now > add256(deployedTimestamp, WAITING_PERIOD), "waiting-period-not-over");
+        require(msg.sender == guardian, "only-guardian-allowed-to-propose");
         uint proposerTotalScore = scoreConnector.getUserTotalScore(msg.sender, now);
         require(proposerTotalScore > proposalThreshold(now), "GovernorAlpha::propose: proposer votes below proposal threshold");
         require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "GovernorAlpha::propose: proposal function information arity mismatch");
         require(targets.length != 0, "GovernorAlpha::propose: must provide actions");
         require(targets.length <= proposalMaxOperations(), "GovernorAlpha::propose: too many actions");
-
-        uint latestProposalId = latestProposalIds[msg.sender];
-        if (latestProposalId != 0) {
-          ProposalState proposersLatestProposalState = state(latestProposalId);
-          require(proposersLatestProposalState != ProposalState.Active, "GovernorAlpha::propose: one live proposal per proposer, found an already active proposal");
-          require(proposersLatestProposalState != ProposalState.Pending, "GovernorAlpha::propose: one live proposal per proposer, found an already pending proposal");
-        }
 
         uint startBlock = add256(block.number, votingDelay());
         uint endBlock = add256(startBlock, votingPeriod());
@@ -179,7 +123,6 @@ contract GovernorAlpha {
         });
 
         proposals[newProposal.id] = newProposal;
-        latestProposalIds[newProposal.proposer] = newProposal.id;
 
         emit ProposalCreated(newProposal.id, msg.sender, targets, values, signatures, calldatas, startBlock, endBlock, description);
         return newProposal.id;
@@ -326,11 +269,6 @@ contract GovernorAlpha {
     function __acceptAdmin() public {
         require(msg.sender == guardian, "GovernorAlpha::__acceptAdmin: sender must be gov guardian");
         timelock.acceptAdmin();
-    }
-
-    function __abdicate() public {
-        require(msg.sender == guardian, "GovernorAlpha::__abdicate: sender must be gov guardian");
-        guardian = address(0);
     }
 
     function __queueSetTimelockPendingAdmin(address newPendingAdmin, uint eta) public {
