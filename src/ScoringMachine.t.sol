@@ -1,7 +1,7 @@
 pragma solidity ^0.5.12;
 
 import { BCdpManagerTestBase, Hevm, FakeUser } from "./BCdpManager.t.sol";
-import { BCdpScore } from "./BCdpScore.sol";
+import { BCdpFullScore } from "./BCdpFullScore.sol";
 import { BCdpScoreConnector } from "./BCdpScoreConnector.sol";
 import { LiquidationMachine } from "./LiquidationMachine.sol";
 import { ScoringMachine } from "../user-rating/contracts/score/ScoringMachine.sol";
@@ -10,7 +10,7 @@ import { ScoringMachine } from "../user-rating/contracts/score/ScoringMachine.so
 contract ScoringMachineTest is BCdpManagerTestBase {
     uint currTime;
 
-    BCdpScore score;
+    BCdpFullScore score;
     MockScoringMachine sm;
 
     function setUp() public {
@@ -19,7 +19,7 @@ contract ScoringMachineTest is BCdpManagerTestBase {
         currTime = now;
         hevm.warp(currTime);
 
-        score = BCdpScore(address(BCdpScoreConnector(manager).score()));
+        score = BCdpFullScore(address(BCdpScoreConnector(manager).score()));
         sm = new MockScoringMachine();
     }
 
@@ -133,6 +133,116 @@ contract ScoringMachineTest is BCdpManagerTestBase {
 
         assertEq(score.getArtScore(cdp, "ETH", currTime, score.start()), 10 ether);
         assertEq(score.getArtGlobalScore("ETH", currTime, score.start()), 10 ether);
+    }
+
+    function testSlashScoreForQuitB() public {
+        timeReset();
+
+        score.spin();
+
+        uint cdp = openCdp(10 ether, 1 ether);
+        
+        forwardTime(10);
+        vat.hope(address(manager));
+
+        assertEq(score.getInkScore(cdp, "ETH", currTime, score.start()), 100 ether);
+        assertEq(score.getInkGlobalScore("ETH", currTime, score.start()), 100 ether);
+
+        assertEq(score.getArtScore(cdp, "ETH", currTime, score.start()), 10 ether);
+        assertEq(score.getArtGlobalScore("ETH", currTime, score.start()), 10 ether);
+
+        manager.quitB(cdp);
+
+        forwardTime(10);
+
+        assertEq(score.getInkScore(cdp, "ETH", currTime, score.start()), 200 ether);
+        assertEq(score.getInkGlobalScore("ETH", currTime, score.start()), 200 ether);
+
+        assertEq(score.getArtScore(cdp, "ETH", currTime, score.start()), 20 ether);
+        assertEq(score.getArtGlobalScore("ETH", currTime, score.start()), 20 ether);
+
+        FakeUser user = new FakeUser();
+        user.doSlashScore(score, cdp);
+        
+        forwardTime(10);
+
+        assertEq(score.getInkScore(cdp, "ETH", currTime, score.start()), 300 ether);
+        assertEq(score.getInkGlobalScore("ETH", currTime, score.start()), 300 ether);
+
+        assertEq(score.getArtScore(cdp, "ETH", currTime, score.start()), 0);
+        assertEq(score.getArtGlobalScore("ETH", currTime, score.start()), 0);
+    }
+
+    function testSlashScoreForQuitBInNextSpin() public {
+        timeReset();
+
+        score.spin();
+
+        uint cdp = openCdp(10 ether, 1 ether);
+        
+        forwardTime(10);
+        vat.hope(address(manager));
+
+        assertEq(score.getInkScore(cdp, "ETH", currTime, score.start()), 100 ether);
+        assertEq(score.getInkGlobalScore("ETH", currTime, score.start()), 100 ether);
+
+        assertEq(score.getArtScore(cdp, "ETH", currTime, score.start()), 10 ether);
+        assertEq(score.getArtGlobalScore("ETH", currTime, score.start()), 10 ether);        
+
+        forwardTime(10);
+
+        manager.quitB(cdp);
+
+        // next spin
+        score.spin();
+        forwardTime(10);
+        FakeUser user = new FakeUser();
+        user.doSlashScore(score, cdp);
+
+        assertEq(score.getInkScore(cdp, "ETH", currTime, score.start()), 100 ether);
+        assertEq(score.getInkGlobalScore("ETH", currTime, score.start()), 100 ether);
+
+        assertEq(score.getArtScore(cdp, "ETH", currTime, score.start()), 0);
+        assertEq(score.getArtGlobalScore("ETH", currTime, score.start()), 0);
+    }
+
+    function testSlashScoreForQuitBOfOneMonth() public {
+        timeReset();
+
+        score.spin();
+
+        uint cdp = openCdp(10 ether, 1 ether);
+
+        vat.hope(address(manager));
+
+        forwardTime(31 days);
+
+        assertEq(score.getInkScore(cdp, "ETH", currTime, score.start()), 31 days * 10 ether);
+        assertEq(score.getInkGlobalScore("ETH", currTime, score.start()), 31 days * 10 ether);
+
+        assertEq(score.getArtScore(cdp, "ETH", currTime, score.start()), 31 days * 1 ether);
+        assertEq(score.getArtGlobalScore("ETH", currTime, score.start()), 31 days * 1 ether);        
+
+        forwardTime(4 days);
+
+        manager.quitB(cdp);
+
+        uint extraDays = 5 days;
+        forwardTime(extraDays);
+
+        FakeUser user = new FakeUser();
+        user.doSlashScore(score, cdp);
+        
+        uint totalDaysForInk = 31 days + 4 days + extraDays;
+        uint totalDaysForArt = 31 days + 4 days;
+        uint daysShashed = 30 days;
+        uint daysRemains = totalDaysForArt - daysShashed;
+
+        assertEq(score.getInkScore(cdp, "ETH", currTime, score.start()), totalDaysForInk * 10 ether);
+        assertEq(score.getInkGlobalScore("ETH", currTime, score.start()), totalDaysForInk * 10 ether);
+
+        assertEq(score.getArtScore(cdp, "ETH", currTime, score.start()), daysRemains * 1 ether);
+        assertEq(score.getArtGlobalScore("ETH", currTime, score.start()), daysRemains * 1 ether);        
     }
 
     function testEnter() public {
@@ -436,7 +546,7 @@ contract ScoringMachineTest is BCdpManagerTestBase {
         address urn = manager.urns(cdp);
         (uint inkBefore,) = vat.urns("ETH", urn);
         liquidator.doBite(pool, cdp, 25 ether, 0);
-        assert(LiquidationMachine(manager).bitten(cdp));
+        assertTrue(LiquidationMachine(manager).bitten(cdp));
         (uint inkAfter,) = vat.urns("ETH", urn);
 
         forwardTime(10);
@@ -457,11 +567,11 @@ contract ScoringMachineTest is BCdpManagerTestBase {
 
         sm._updateAssetScore("user", "ETH", _INT256_MIN, time);
         score_ = sm._getScore("user", "ETH", now, time, time);
-        assert(score_ > 0);
+        assertTrue(score_ > 0);
         (score_, balance,) = sm._getAssetScore("user", "ETH");
         // Math calc would underflow when uint(_INT256_MIN) is performed.
         // Hence, balance will be set to 0
-        assert(balance == 0);
+        assertTrue(balance == 0);
     }
 
     function testUpdateAssetScoreWithMaxValue() public {
@@ -472,15 +582,15 @@ contract ScoringMachineTest is BCdpManagerTestBase {
 
         uint score_; uint balance;
         (, balance,) = sm._getAssetScore("user", "ETH");
-        assert(balance < (uint(-1) - uint(_INT256_MAX)));
+        assertTrue(balance < (uint(-1) - uint(_INT256_MAX)));
 
         sm._updateAssetScore("user", "ETH", _INT256_MAX, time);
         score_ = sm._getScore("user", "ETH", now, time, time);
-        assert(score_ > 0);
+        assertTrue(score_ > 0);
         (score_, balance,) = sm._getAssetScore("user", "ETH");
         // Math calc would not overflow as uint(_INT256_MAX) is converted to 256 bit value
         // which is less than 2^256-1, henve balance will be increased
-        assert(balance > 0);
+        assertTrue(balance > 0);
     }
 
     function resetAndMakeFakeScore(uint time) internal {
@@ -493,9 +603,9 @@ contract ScoringMachineTest is BCdpManagerTestBase {
         forwardTime(10);
         sm._updateScore("user", "ETH", 1 ether, now);
         score_ = sm._getScore("user", "ETH", now, time, time);
-        assert(score_ > 0);
+        assertTrue(score_ > 0);
         (score_, balance,) = sm._getAssetScore("user", "ETH");
-        assert(balance > 0);
+        assertTrue(balance > 0);
     }
 }
 
