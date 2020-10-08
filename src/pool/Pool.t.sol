@@ -4,7 +4,7 @@ import { BCdpManagerTestBase, Hevm, FakeUser, FakeDaiToUsdPriceFeed } from "./..
 import { BCdpScore } from "./../BCdpScore.sol";
 import { Pool } from "./Pool.sol";
 import { LiquidationMachine } from "./../LiquidationMachine.sol";
-
+import { LiquidatorInfo } from "./../info/LiquidatorInfo.sol";
 
 contract FakeMember is FakeUser {
     function doDeposit(Pool pool, uint rad) public {
@@ -34,6 +34,7 @@ contract PoolTest is BCdpManagerTestBase {
     FakeMember[] members;
     FakeMember nonMember;
     address constant JAR = address(0x1234567890);
+    LiquidatorInfo info;
 
     function setUp() public {
         super.setUp();
@@ -59,6 +60,8 @@ contract PoolTest is BCdpManagerTestBase {
         pool.setIlk("ETH", true);
 
         member = members[0];
+
+        info = new LiquidatorInfo(LiquidationMachine(manager));
     }
 
     function getMembers() internal view returns(address[] memory) {
@@ -667,11 +670,27 @@ contract PoolTest is BCdpManagerTestBase {
         // set next price to 150, which means a cushion of 10 dai is expected
         osm.setPrice(150 * 1e18); // 1 ETH = 150 DAI
 
+        (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow) =
+            info.getBiteInfoFlat(cdp, address(members[0]));
+        assertEq(availableBiteInArt ,0);
+        assertEq(availableBiteInDaiWei ,0);
+        assertTrue(! canCallBiteNow);
+
         members[0].doTopup(pool, cdp);
+
+        (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow) = info.getBiteInfoFlat(cdp, address(members[0]));
+        assertEq(availableBiteInArt, 110 ether / 4);
+        assertEq(availableBiteInDaiWei, 110 ether / 4);
+        assertTrue(! canCallBiteNow);
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
         realPrice.set("ETH", 130 * 1e18);
+
+        (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow) = info.getBiteInfoFlat(cdp, address(members[0]));
+        assertEq(availableBiteInArt, 110 ether / 4);
+        assertEq(availableBiteInDaiWei, 110 ether / 4);
+        assertTrue(canCallBiteNow);
 
         //uint ethBefore = vat.gem("ETH", address(members[0]));
         this.file(address(cat), "ETH", "chop", WAD + WAD/10);
@@ -682,6 +701,11 @@ contract PoolTest is BCdpManagerTestBase {
         uint expectedEthInJar = _100Percent - expectedEth;
 
         assertTrue(_100Percent >= expectedEth);
+
+        (,,uint debtInDaiWei,,uint expectedEthReturn) = info.getVaultInfoFlat(cdp, 130 * 1e18);
+        assertEq(debtInDaiWei, 110 ether);
+        assertEq(expectedEth * 11 / 1e3, expectedEthReturn / 1e3);
+        assertEq(expectedEth, info.getExpectedEthReturn("ETH",10 ether,130e18));
 
         assertTrue(! canKeepersBite(cdp));
         uint dink = members[0].doPoolBite(pool, cdp, 10 ether, expectedEth);
@@ -1015,6 +1039,21 @@ contract PoolTest is BCdpManagerTestBase {
         uint expectedInJar = _100Percent - expectedEth;
 
         for(uint i = 0 ; i < 4 ; i++) {
+            {
+                (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow) = info.getBiteInfoFlat(cdp, address(members[i]));
+                assertEq(availableBiteInArt, 26 ether);
+                assertEq(availableBiteInDaiWei, 26 ether * currRate / RAY);
+                assertTrue(canCallBiteNow);
+                uint memberEstimatedInk = info.getExpectedEthReturn("ETH", availableBiteInDaiWei, 140e18);
+                assertEq(expectedEth, memberEstimatedInk);
+
+                if(i > 0) {
+                    (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow) = info.getBiteInfoFlat(cdp, address(members[i - 1]));
+                    assertEq(availableBiteInArt, 0);
+                    assertEq(availableBiteInDaiWei, 0);
+                }
+            }
+
             assertTrue(! canKeepersBite(cdp));
             uint dink = members[i].doPoolBite(pool, cdp, 26 ether, expectedEth);
             assertTrue(! canKeepersBite(cdp));
