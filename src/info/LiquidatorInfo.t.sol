@@ -4,7 +4,7 @@ import { BCdpManagerTestBase, Hevm, FakeUser, FakeDaiToUsdPriceFeed } from "./..
 import { BCdpScore } from "./../BCdpScore.sol";
 import { Pool } from "./../pool/Pool.sol";
 import { LiquidationMachine } from "./../LiquidationMachine.sol";
-import { LiquidatorInfo } from "./LiquidatorInfo.sol";
+import { FlatLiquidatorInfo } from "./LiquidatorInfo.sol";
 
 
 contract FakeDaiToUsdPriceFeedLike {
@@ -38,7 +38,7 @@ contract LiquidatorInfoTest is BCdpManagerTestBase {
     FakeMember member;
     FakeMember[] members;
     FakeMember nonMember;
-    LiquidatorInfo info;
+    FlatLiquidatorInfo info;
     address constant JAR = address(0x1234567890);
 
     function setUp() public {
@@ -66,7 +66,7 @@ contract LiquidatorInfoTest is BCdpManagerTestBase {
 
         member = members[0];
 
-        info = new LiquidatorInfo(LiquidationMachine(address(manager)));
+        info = new FlatLiquidatorInfo(LiquidationMachine(address(manager)));
 
         assertEq(address(LiquidationMachine(address(manager)).pool()),address(pool));
 
@@ -210,8 +210,8 @@ contract LiquidatorInfoTest is BCdpManagerTestBase {
 
     function testBiteInfoNotInBite() public {
         uint cdp = openCdp(1 ether, 50 ether);
-        address member = getMembers()[0];
-        (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow) = info.getBiteInfoFlat(cdp, member);
+        address firstMember = getMembers()[0];
+        (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow) = info.getBiteInfoFlat(cdp, firstMember);
 
         assertEq(availableBiteInArt, 0);
         assertEq(availableBiteInDaiWei, 0);

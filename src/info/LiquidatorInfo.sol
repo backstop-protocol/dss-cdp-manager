@@ -94,17 +94,6 @@ contract LiquidatorInfo is Math {
         }
     }
 
-    function getVaultInfoFlat(uint cdp, uint currentPriceFeedValue) external
-        returns(bytes32 collateralType, uint collateralInWei, uint debtInDaiWei, uint liquidationPrice,
-                uint expectedEthReturnWithCurrentPrice) {
-        VaultInfo memory info = getVaultInfo(cdp, currentPriceFeedValue);
-        collateralType = info.collateralType;
-        collateralInWei = info.collateralInWei;
-        debtInDaiWei = info.debtInDaiWei;
-        liquidationPrice = info.liquidationPrice;
-        expectedEthReturnWithCurrentPrice = info.expectedEthReturnWithCurrentPrice;
-    }
-
     function getCushionInfo(uint cdp, address me, uint numMembers) public view returns(CushionInfo memory info) {
         (uint dart, uint dtab, uint art, bool should, address[] memory winners) = pool.topupInfo(cdp);
         if(dart == 0) return info;
@@ -133,42 +122,19 @@ contract LiquidatorInfo is Math {
         info.canCallTopupNow = should && info.shouldProvideCushion;
     }
 
-    function getCushionInfoFlat(uint cdp, address me, uint numMembers) external view
-        returns(uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
-                uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
-                bool canCallTopupNow) {
-
-        CushionInfo memory info = getCushionInfo(cdp, me, numMembers);
-        cushionSizeInWei = info.cushionSizeInWei;
-        numLiquidators = info.numLiquidators;
-        cushionSizeInWeiIfAllHaveBalance = info.cushionSizeInWeiIfAllHaveBalance;
-        numLiquidatorsIfAllHaveBalance = info.numLiquidatorsIfAllHaveBalance;
-        shouldProvideCushion = info.shouldProvideCushion;
-        shouldProvideCushionIfAllHaveBalance = info.shouldProvideCushionIfAllHaveBalance;
-        canCallTopupNow = info.canCallTopupNow;
-    }
-
     function getBiteInfo(uint cdp, address me) public view returns(BiteInfo memory info) {
         info.availableBiteInArt = pool.availBite(cdp, me);
         if(info.availableBiteInArt == 0) return info;
 
         bytes32 ilk = manager.ilks(cdp);
         address u = manager.urns(cdp);
-        (,uint rate, uint spot,,) = vat.ilks(ilk);
+        (,uint rate, uint currSpot,,) = vat.ilks(ilk);
 
         info.availableBiteInDaiWei = mul(rate, info.availableBiteInArt) / RAY;
 
         (uint ink, uint art) = vat.urns(ilk, u);
         uint cushion = manager.cushion(cdp);
-        info.canCallBiteNow = (mul(ink, spot) < mul(add(art, cushion), rate)) || manager.bitten(cdp);
-    }
-
-    function getBiteInfoFlat(uint cdp, address me) external view
-        returns(uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow) {
-        BiteInfo memory info = getBiteInfo(cdp, me);
-        availableBiteInArt = info.availableBiteInArt;
-        availableBiteInDaiWei = info.availableBiteInDaiWei;
-        canCallBiteNow = info.canCallBiteNow;
+        info.canCallBiteNow = (mul(ink, currSpot) < mul(add(art, cushion), rate)) || manager.bitten(cdp);
     }
 
     function getNumMembers() public returns(uint) {
@@ -188,5 +154,43 @@ contract LiquidatorInfo is Math {
             info[index].cushion = getCushionInfo(cdp, me, numMembers);
             info[index].bite = getBiteInfo(cdp, me);
         }
+    }
+}
+
+contract FlatLiquidatorInfo is LiquidatorInfo {
+    constructor(LiquidationMachine manager_) public LiquidatorInfo(manager_) {}
+
+    function getVaultInfoFlat(uint cdp, uint currentPriceFeedValue) external
+        returns(bytes32 collateralType, uint collateralInWei, uint debtInDaiWei, uint liquidationPrice,
+                uint expectedEthReturnWithCurrentPrice) {
+        VaultInfo memory info = getVaultInfo(cdp, currentPriceFeedValue);
+        collateralType = info.collateralType;
+        collateralInWei = info.collateralInWei;
+        debtInDaiWei = info.debtInDaiWei;
+        liquidationPrice = info.liquidationPrice;
+        expectedEthReturnWithCurrentPrice = info.expectedEthReturnWithCurrentPrice;
+    }
+
+    function getCushionInfoFlat(uint cdp, address me, uint numMembers) external view
+        returns(uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
+                uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
+                bool canCallTopupNow) {
+
+        CushionInfo memory info = getCushionInfo(cdp, me, numMembers);
+        cushionSizeInWei = info.cushionSizeInWei;
+        numLiquidators = info.numLiquidators;
+        cushionSizeInWeiIfAllHaveBalance = info.cushionSizeInWeiIfAllHaveBalance;
+        numLiquidatorsIfAllHaveBalance = info.numLiquidatorsIfAllHaveBalance;
+        shouldProvideCushion = info.shouldProvideCushion;
+        shouldProvideCushionIfAllHaveBalance = info.shouldProvideCushionIfAllHaveBalance;
+        canCallTopupNow = info.canCallTopupNow;
+    }
+
+    function getBiteInfoFlat(uint cdp, address me) external view
+        returns(uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow) {
+        BiteInfo memory info = getBiteInfo(cdp, me);
+        availableBiteInArt = info.availableBiteInArt;
+        availableBiteInDaiWei = info.availableBiteInDaiWei;
+        canCallBiteNow = info.canCallBiteNow;
     }
 }

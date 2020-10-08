@@ -4,7 +4,7 @@ import { BCdpManagerTestBase, Hevm, FakeUser, FakeDaiToUsdPriceFeed } from "./..
 import { BCdpScore } from "./../BCdpScore.sol";
 import { Pool } from "./Pool.sol";
 import { LiquidationMachine } from "./../LiquidationMachine.sol";
-import { LiquidatorInfo } from "./../info/LiquidatorInfo.sol";
+import { FlatLiquidatorInfo } from "./../info/LiquidatorInfo.sol";
 
 contract FakeMember is FakeUser {
     function doDeposit(Pool pool, uint rad) public {
@@ -34,7 +34,7 @@ contract PoolTest is BCdpManagerTestBase {
     FakeMember[] members;
     FakeMember nonMember;
     address constant JAR = address(0x1234567890);
-    LiquidatorInfo info;
+    FlatLiquidatorInfo info;
 
     function setUp() public {
         super.setUp();
@@ -61,7 +61,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         member = members[0];
 
-        info = new LiquidatorInfo(LiquidationMachine(manager));
+        info = new FlatLiquidatorInfo(LiquidationMachine(manager));
     }
 
     function getMembers() internal view returns(address[] memory) {
@@ -461,6 +461,20 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(art, 110 ether);
         assertEq(uint(dart) * RAY, uint(dtab));
 
+        {
+            (uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
+             uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
+             bool canCallTopupNow) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
+
+            assertEq(cushionSizeInWei, dtab / RAY);
+            assertEq(numLiquidators, 4);
+            assertEq(cushionSizeInWeiIfAllHaveBalance, dtab / (4*RAY));
+            assertEq(numLiquidatorsIfAllHaveBalance, 4);
+            assertTrue(shouldProvideCushion);
+            assertTrue(shouldProvideCushionIfAllHaveBalance);
+            assertTrue(canCallTopupNow);
+        }
+
         members[0].doTopup(pool, cdp);
 
         (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
@@ -478,6 +492,65 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(pool.rad(address(members[1])), uint(950 ether * RAY) - uint(1+ dtab/4));
         assertEq(pool.rad(address(members[2])), uint(900 ether * RAY) - uint(1+ dtab/4));
         assertEq(pool.rad(address(members[3])), uint(850 ether * RAY) - uint(1+ dtab/4));
+    }
+
+    function testTopupWithTwoMembers() public {
+        members[0].doDeposit(pool, 1000 ether * RAY);
+        members[2].doDeposit(pool, 900 ether * RAY);
+
+        pool.setMinArt(1 ether);
+
+        // open cdp with rate  = 1, that hit liquidation state
+        uint cdp = openCdp(1 ether, 110 ether); // 1 eth, 110 dai
+
+        // set next price to 150, which means a cushion of 10 dai is expected
+        osm.setPrice(150 * 1e18); // 1 ETH = 150 DAI
+
+        (uint dart, uint dtab, uint art) = pool.topAmount(cdp);
+
+        assertEq(uint(dtab), withExtra(10 ether) * RAY);
+        assertEq(art, 110 ether);
+        assertEq(uint(dart) * RAY, uint(dtab));
+
+        {
+            (uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
+             uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
+             bool canCallTopupNow) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
+
+            assertEq(cushionSizeInWei, dtab / RAY);
+            assertEq(numLiquidators, 2);
+            assertEq(cushionSizeInWeiIfAllHaveBalance, dtab / (4*RAY));
+            assertEq(numLiquidatorsIfAllHaveBalance, 4);
+            assertTrue(shouldProvideCushion);
+            assertTrue(shouldProvideCushionIfAllHaveBalance);
+            assertTrue(canCallTopupNow);
+
+            (cushionSizeInWei, numLiquidators, cushionSizeInWeiIfAllHaveBalance,
+             numLiquidatorsIfAllHaveBalance, shouldProvideCushion, shouldProvideCushionIfAllHaveBalance,
+             canCallTopupNow) = info.getCushionInfoFlat(cdp,address(members[1]), 4);
+
+            assertEq(cushionSizeInWei, dtab / RAY);
+            assertEq(numLiquidators, 2);
+            assertEq(cushionSizeInWeiIfAllHaveBalance, dtab / (4*RAY));
+            assertEq(numLiquidatorsIfAllHaveBalance, 4);
+            assertTrue(shouldProvideCushion);
+            assertTrue(shouldProvideCushionIfAllHaveBalance);
+            assertTrue(canCallTopupNow);
+        }
+
+        members[0].doTopup(pool, cdp);
+
+        (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
+        bite; //shh
+        assertEq(art, cdpArt);
+        assertEq(cdpCushion, uint(dtab));
+        assertEq(winners.length, 2);
+        assertEq(address(winners[0]), address(members[0]));
+        assertEq(address(winners[1]), address(members[2]));
+
+        // check balances
+        assertEq(pool.rad(address(members[0])), uint(1000 ether * RAY) - uint(1+ dtab/2));
+        assertEq(pool.rad(address(members[2])), uint(900 ether * RAY) - uint(1+ dtab/2));
     }
 
     function testSingleTopup() public {
@@ -501,6 +574,51 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(uint(dart) * RAY, uint(dtab));
 
         address[] memory singleMember = pool.chooseMember(cdp, uint(dtab), getMembers());
+
+        {
+            (uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
+             uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
+             bool canCallTopupNow) = info.getCushionInfoFlat(cdp, singleMember[0], 4);
+
+            assertEq(cushionSizeInWei, dtab / RAY);
+            assertEq(numLiquidators, 1);
+            assertEq(cushionSizeInWeiIfAllHaveBalance, dtab / (1*RAY));
+            assertEq(numLiquidatorsIfAllHaveBalance, 1);
+            assertTrue(shouldProvideCushion);
+            assertTrue(shouldProvideCushionIfAllHaveBalance);
+            assertTrue(canCallTopupNow);
+
+            address loser = address(members[0]);
+            if(singleMember[0] == loser) loser = address(members[1]);
+
+            (cushionSizeInWei, numLiquidators, cushionSizeInWeiIfAllHaveBalance,
+             numLiquidatorsIfAllHaveBalance, shouldProvideCushion, shouldProvideCushionIfAllHaveBalance,
+             canCallTopupNow) = info.getCushionInfoFlat(cdp, loser, 4);
+
+            assertEq(cushionSizeInWei, dtab / RAY);
+            assertEq(numLiquidators, 1);
+            assertEq(cushionSizeInWeiIfAllHaveBalance, dtab / RAY);
+            assertEq(numLiquidatorsIfAllHaveBalance, 1);
+            assertTrue(! shouldProvideCushion);
+            assertTrue(! shouldProvideCushionIfAllHaveBalance);
+            assertTrue(! canCallTopupNow);
+
+            /*
+            uint winnerBalance = pool.rad(singleMember[0]);
+            singleMember[0].doWithdraw(winnerBalance,pool);
+
+            (cushionSizeInWei, numLiquidators, cushionSizeInWeiIfAllHaveBalance,
+             numLiquidatorsIfAllHaveBalance, shouldProvideCushion, shouldProvideCushionIfAllHaveBalance,
+             canCallTopupNow) = info.getCushionInfoFlat(cdp, singleMember[0], 4);
+
+             assertEq(cushionSizeInWei, dtab / RAY);
+             assertEq(numLiquidators, 1);
+             assertEq(cushionSizeInWeiIfAllHaveBalance, dtab / (1*RAY));
+             assertEq(numLiquidatorsIfAllHaveBalance, 1);
+             assertTrue(shouldProvideCushion);
+             assertTrue(shouldProvideCushionIfAllHaveBalance);
+             assertTrue(canCallTopupNow);             */
+        }
 
         FakeMember(singleMember[0]).doTopup(pool, cdp);
 
