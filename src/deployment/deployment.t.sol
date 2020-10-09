@@ -62,7 +62,7 @@ contract FakeCat {
 contract FakeJug {
     function ilks(bytes32 ilk) public view returns(uint duty, uint rho) {
         duty = 1e27;
-        rho = now;
+        rho = (now / 1 hours) * 1 hours - 10 minutes;
         ilk; // shhhh
     }
     function base() public pure returns(uint) {
@@ -212,10 +212,11 @@ contract BDeployer {
         //score.setManager(address(man));
         pool.setCdpManager(man);
         pool.setOsm("ETH-A", address(d.osm()));
-        address[] memory members = new address[](2);
+        address[] memory members = new address[](3);
         member = new FakeMember();
         members[0] = address(member);
         members[1] = 0xf214dDE57f32F3F34492Ba3148641693058D4A9e;
+        members[2] = 0x534447900af78B74bB693470cfE7c7dFd54A974c;
         pool.setMembers(members);
         pool.setIlk("ETH-A", true);
         pool.setProfitParams(94, 100);
@@ -226,6 +227,10 @@ contract BDeployer {
 
     function poke(int ink, int art) public {
         (cdpUnsafeNext, cdpCustom) = deployer.poke(man, msg.sender, ink, art);
+    }
+
+    function updatePrice() public {
+        deployer.updatePrice();
     }
 }
 
@@ -314,9 +319,13 @@ contract DeploymentTest is BCdpManagerTestBase {
         m.doDeposit(p, 1e22 * 1e27);
         assertEq(p.rad(address(m)), 1e22 * 1e27);
 
+        forwardTime(1);
+        p.topupInfo(cdp2); // just make sure it does not crash
+
         m.doTopup(p, cdp2);
         ds.updatePrice();
         m.doBite(p, cdp2, 100 ether, 0);
+
         assertEq(v.gem("ETH-A", address(m)), 727534246575342465);
 
         assertEq(ds.weth().balanceOf(address(m)), 0);
