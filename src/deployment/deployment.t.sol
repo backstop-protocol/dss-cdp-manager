@@ -6,6 +6,9 @@ import { BCdpScore } from "./../BCdpScore.sol";
 import { Pool } from "./../pool/Pool.sol";
 import { FakeMember } from "./../pool/Pool.t.sol";
 import { LiquidationMachine, PriceFeedLike } from "./../LiquidationMachine.sol";
+import { UserInfo } from "./../info/UserInfo.sol";
+import { JarConnector } from "./../JarConnector.sol";
+import { Jar } from "./../../user-rating/contracts/jar/Jar.sol";
 
 
 contract PriceFeed is DSValue {
@@ -149,6 +152,42 @@ contract VatDeployer {
     }
 }
 
+contract UserDeployment {
+    address constant VAT = 0xbA987bDB501d131f766fEe8180Da5d81b34b69d9;
+    address constant END = 0x24728AcF2E2C403F5d2db4Df6834B8998e56aA5F;
+    address constant POOL = address(0x0);
+    address constant REAL = 0x75dD74e8afE8110C8320eD397CcCff3B8134d981;
+    address constant DAI = 0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa;
+    address constant WETH = 0xd0A1E359811322d97991E03f863a0C30C2cF029C;
+    address constant ETH_JOIN = 0x775787933e92b709f2a3C70aa87999696e74A9F8;
+
+    address public score;
+    address public manager;
+    address public userInfo;
+    address public jar;
+    address public jarConnector;
+
+    constructor() public {
+        BCdpScore _score = new BCdpScore();
+        BCdpManager man = new BCdpManager(VAT, END, POOL, REAL, address(_score));
+        _score.setManager(address(man));
+
+        UserInfo _userInfo = new UserInfo(DAI, WETH);
+
+        JarConnector _jarConnector = new JarConnector(address(man), ETH_JOIN, "ETH-A", [uint(30 days), uint(5 * 30 days)]);
+        _score.transferOwnership(address(_jarConnector));
+        _jarConnector.spin();
+        
+        Jar _jar = new Jar(uint(1), uint(now + 30 days), address(_jarConnector));
+
+        score = address(_score);
+        manager = address(man);
+        userInfo = address(_userInfo);
+        jarConnector = address(_jarConnector);
+        jar = address(_jar);
+    }
+}
+
 
 contract DeploymentTest is BCdpManagerTestBase {
     uint currTime;
@@ -192,6 +231,26 @@ contract DeploymentTest is BCdpManagerTestBase {
         }
 
         return memoryMembers;
+    }
+
+    function testUserDeployment() public {
+        UserDeployment userDeployment = new UserDeployment();
+
+        assertTrue(userDeployment.score() != address(0));
+        assertTrue(userDeployment.manager() != address(0));
+        assertTrue(userDeployment.userInfo() != address(0));
+        assertTrue(userDeployment.jar() != address(0));
+        assertTrue(userDeployment.jarConnector() != address(0));
+
+        Jar jar = Jar(address(uint160(userDeployment.jar())));
+        BCdpScore score = BCdpScore(userDeployment.score());
+        JarConnector jarConnector = JarConnector(userDeployment.jarConnector());
+
+        assertEq(address(jar.connector()), address(jarConnector));
+
+        assertEq(jarConnector.round(), 1);
+
+        assertEq(score.owner(), address(jarConnector));
     }
 
     function testDeployer() public {
