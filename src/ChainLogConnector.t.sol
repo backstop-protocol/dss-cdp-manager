@@ -114,7 +114,7 @@ contract DogLike {
 
     constructor() public {
         ilks["ETH"].clip = address(0x123);
-        ilks["ETH"].chop = 112 ether / 100; // 1.13
+        ilks["ETH"].chop = 112 ether / 100; // 1.12
         ilks["ETH"].hole = 124;
         ilks["ETH"].dirt = 999;
     }
