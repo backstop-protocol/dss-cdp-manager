@@ -207,6 +207,36 @@ contract JarConnectorTest is BCdpManagerTestBase {
         assertEq(0, jarConnector.getUserScore(bytes32(cdp3 + 1)));
 
         assertEq(expectedScore1 + expectedScore2 + expectedScore3, jarConnector.getGlobalScore());
+
+        uint wad = 12345;
+        sendGem(wad, address(jar));
+
+        assertEq(vat.gem("ETH", address(jar)), wad);
+
+        // exit both
+        jar.gemExit();
+
+        uint globalScore = jarConnector.getGlobalScore();
+
+        uint wethBalanceBefore = weth.balanceOf(address(this));
+        uint wethBalanceAfter;
+
+        jar.withdraw(bytes32(cdp1), address(weth));
+        wethBalanceAfter = weth.balanceOf(address(this));
+        assertEq(wethBalanceAfter - wethBalanceBefore, expectedScore1 * 12345 / globalScore);
+
+        wethBalanceBefore = weth.balanceOf(address(this));
+        jar.withdraw(bytes32(cdp2), address(weth));
+        wethBalanceAfter = weth.balanceOf(address(this));
+        assertEq(wethBalanceAfter - wethBalanceBefore, expectedScore2 * 12345 / globalScore);
+
+        wethBalanceBefore = weth.balanceOf(address(this));
+        jar.withdraw(bytes32(cdp3), address(weth));
+        wethBalanceAfter = weth.balanceOf(address(this));
+        // +1 because there are no rounding errors
+        assertEq(wethBalanceAfter - wethBalanceBefore, 1 + expectedScore3 * 12345 / globalScore);
+
+        assertEq(weth.balanceOf(address(jar)), 0);
     }
 
     function testScoreWithMultiIlk() public {
