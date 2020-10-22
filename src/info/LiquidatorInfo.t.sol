@@ -3,6 +3,7 @@ pragma solidity ^0.5.12;
 import { BCdpManagerTestBase, Hevm, FakeUser, FakeDaiToUsdPriceFeed } from "./../BCdpManager.t.sol";
 import { BCdpScore } from "./../BCdpScore.sol";
 import { Pool } from "./../pool/Pool.sol";
+import { Math } from "./../Math.sol";
 import { LiquidationMachine } from "./../LiquidationMachine.sol";
 import { FlatLiquidatorInfo } from "./LiquidatorInfo.sol";
 
@@ -33,7 +34,7 @@ contract FakeMember is FakeUser {
     }
 }
 
-contract LiquidatorInfoTest is BCdpManagerTestBase {
+contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
     uint currTime;
     FakeMember member;
     FakeMember[] members;
@@ -209,8 +210,14 @@ contract LiquidatorInfoTest is BCdpManagerTestBase {
     function testBiteInfoNotInBite() public {
         uint cdp = openCdp(1 ether, 50 ether);
         address firstMember = getMembers()[0];
-        (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow) = info.getBiteInfoFlat(cdp, firstMember);
 
+        timeReset();
+        osm.setH(60 * 60);
+        osm.setZ(currTime - 24 * 60); // now it is 00:24
+
+        (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow, uint timeTillBite) = info.getBiteInfoFlat(cdp, firstMember);
+
+        assertEq(timeTillBite, 36 * 60);
         assertEq(availableBiteInArt, 0);
         assertEq(availableBiteInDaiWei, 0);
         assertTrue(! canCallBiteNow);

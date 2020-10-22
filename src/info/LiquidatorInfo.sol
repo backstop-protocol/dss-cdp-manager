@@ -125,10 +125,10 @@ contract LiquidatorInfo is Math {
 
         info.canCallTopupNow = should && info.shouldProvideCushion;
         if(manager.cushion(cdp) == 0) {
-            (uint art,uint cushion, address[] memory winners,uint[] memory bite) = pool.getCdpData(cdp);
-            for(uint i = 0 ; i < winners.length ; i++) {
-                if(me == winners[i]) {
-                    uint perUserArt = art / winners.length;
+            (uint cdpArt,, address[] memory cdpWinners,uint[] memory bite) = pool.getCdpData(cdp);
+            for(uint i = 0 ; i < cdpWinners.length ; i++) {
+                if(me == cdpWinners[i]) {
+                    uint perUserArt = cdpArt / cdpWinners.length;
                     if(perUserArt > bite[i]) {
                         info.shouldCallUntop = true;
                         break;
@@ -144,9 +144,13 @@ contract LiquidatorInfo is Math {
 
     function getBiteInfo(uint cdp, address me) public view returns(BiteInfo memory info) {
         info.availableBiteInArt = pool.availBite(cdp, me);
+
+        bytes32 ilk = manager.ilks(cdp);        
+        uint priceUpdateTime = add(uint(pool.osm(ilk).zzz()), uint(pool.osm(ilk).hop()));
+        info.minimumTimeBeforeCallingBite = (now >= priceUpdateTime) ? 0 : sub(priceUpdateTime, now);
+
         if(info.availableBiteInArt == 0) return info;
 
-        bytes32 ilk = manager.ilks(cdp);
         address u = manager.urns(cdp);
         (,uint rate, uint currSpot,,) = vat.ilks(ilk);
 
@@ -209,10 +213,11 @@ contract FlatLiquidatorInfo is LiquidatorInfo {
     }
 
     function getBiteInfoFlat(uint cdp, address me) external view
-        returns(uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow) {
+        returns(uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow,uint minimumTimeBeforeCallingBite) {
         BiteInfo memory info = getBiteInfo(cdp, me);
         availableBiteInArt = info.availableBiteInArt;
         availableBiteInDaiWei = info.availableBiteInDaiWei;
         canCallBiteNow = info.canCallBiteNow;
+        minimumTimeBeforeCallingBite = info.minimumTimeBeforeCallingBite;
     }
 }

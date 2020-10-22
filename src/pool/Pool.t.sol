@@ -811,7 +811,7 @@ contract PoolTest is BCdpManagerTestBase {
         // set next price to 150, which means a cushion of 10 dai is expected
         osm.setPrice(150 * 1e18); // 1 ETH = 150 DAI
 
-        (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow) =
+        (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow,) =
             info.getBiteInfoFlat(cdp, address(members[0]));
         assertEq(availableBiteInArt ,0);
         assertEq(availableBiteInDaiWei ,0);
@@ -819,7 +819,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         members[0].doTopup(pool, cdp);
 
-        (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow) = info.getBiteInfoFlat(cdp, address(members[0]));
+        (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow,) = info.getBiteInfoFlat(cdp, address(members[0]));
         assertEq(availableBiteInArt, 110 ether / 4);
         assertEq(availableBiteInDaiWei, 110 ether / 4);
         assertTrue(! canCallBiteNow);
@@ -828,7 +828,7 @@ contract PoolTest is BCdpManagerTestBase {
         spotter.poke("ETH");
         pipETH.poke(bytes32(uint(130 * 1e18)));
 
-        (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow) = info.getBiteInfoFlat(cdp, address(members[0]));
+        (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow,) = info.getBiteInfoFlat(cdp, address(members[0]));
         assertEq(availableBiteInArt, 110 ether / 4);
         assertEq(availableBiteInDaiWei, 110 ether / 4);
         assertTrue(canCallBiteNow);
@@ -1088,9 +1088,18 @@ contract PoolTest is BCdpManagerTestBase {
 
         (, uint prevRate,,,) = vat.ilks("ETH");
 
+        (,,,uint timeTillBite) = info.getBiteInfoFlat(cdp, address(members[3]));
+        assertEq(timeTillBite, 29 * 60);
+
         members[3].doTopup(pool, cdp);
 
+        (,,,timeTillBite) = info.getBiteInfoFlat(cdp, address(members[3]));
+        assertEq(timeTillBite, 29 * 60);
+
         forwardTime(30 minutes);
+
+        (,,,timeTillBite) = info.getBiteInfoFlat(cdp, address(members[3]));
+        assertEq(timeTillBite, 0);
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
@@ -1181,7 +1190,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         for(uint i = 0 ; i < 4 ; i++) {
             {
-                (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow) = info.getBiteInfoFlat(cdp, address(members[i]));
+                (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow,) = info.getBiteInfoFlat(cdp, address(members[i]));
                 assertEq(availableBiteInArt, 26 ether);
                 assertEq(availableBiteInDaiWei, 26 ether * currRate / RAY);
                 assertTrue(canCallBiteNow);
@@ -1189,7 +1198,7 @@ contract PoolTest is BCdpManagerTestBase {
                 assertEq(expectedEth, memberEstimatedInk);
 
                 if(i > 0) {
-                    (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow) = info.getBiteInfoFlat(cdp, address(members[i - 1]));
+                    (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow,) = info.getBiteInfoFlat(cdp, address(members[i - 1]));
                     assertEq(availableBiteInArt, 0);
                     assertEq(availableBiteInDaiWei, 0);
                 }
@@ -1331,7 +1340,7 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(pool.availBite(cdp, address(members[2])), 0);
         assertEq(pool.availBite(cdp, address(members[3])), 0);
 
-        // jar should get 2% 
+        // jar should get 2%
         assertEq(vat.gem("ETH", address(jar)), expectedEthInJar * 4);
     }
 
