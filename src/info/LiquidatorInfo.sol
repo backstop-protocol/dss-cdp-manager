@@ -33,6 +33,7 @@ contract LiquidatorInfo is Math {
         bool shouldProvideCushion;
         bool shouldProvideCushionIfAllHaveBalance;
 
+        uint minimumTimeBeforeCallingTopup;
         bool canCallTopupNow;
 
         bool shouldCallUntop;
@@ -41,6 +42,7 @@ contract LiquidatorInfo is Math {
     struct BiteInfo {
         uint availableBiteInArt;
         uint availableBiteInDaiWei;
+        uint minimumTimeBeforeCallingBite;
         bool canCallBiteNow;
     }
 
@@ -134,6 +136,10 @@ contract LiquidatorInfo is Math {
                 }
             }
         }
+
+        bytes32 ilk = manager.ilks(cdp);
+        uint topupTime = add(uint(pool.osm(ilk).zzz()), uint(pool.osm(ilk).hop())/2);
+        info.minimumTimeBeforeCallingTopup = (now >= topupTime) ? 0 : sub(topupTime, now);
     }
 
     function getBiteInfo(uint cdp, address me) public view returns(BiteInfo memory info) {
@@ -188,7 +194,7 @@ contract FlatLiquidatorInfo is LiquidatorInfo {
     function getCushionInfoFlat(uint cdp, address me, uint numMembers) external view
         returns(uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
                 uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
-                bool canCallTopupNow, bool shouldCallUntop) {
+                bool canCallTopupNow, bool shouldCallUntop, uint minimumTimeBeforeCallingTopup) {
 
         CushionInfo memory info = getCushionInfo(cdp, me, numMembers);
         cushionSizeInWei = info.cushionSizeInWei;
@@ -199,6 +205,7 @@ contract FlatLiquidatorInfo is LiquidatorInfo {
         shouldProvideCushionIfAllHaveBalance = info.shouldProvideCushionIfAllHaveBalance;
         canCallTopupNow = info.canCallTopupNow;
         shouldCallUntop = info.shouldCallUntop;
+        minimumTimeBeforeCallingTopup = info.minimumTimeBeforeCallingTopup;
     }
 
     function getBiteInfoFlat(uint cdp, address me) external view

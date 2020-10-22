@@ -179,8 +179,6 @@ contract LiquidatorInfoTest is BCdpManagerTestBase {
         // 96.5% of it goes to liquidator = 0.8921462130417174 ETH = 8921462130417174e2 wei
         // liquidator get 1% extra, because of dai/usd price =
         assertEq(returnValue / uint(1000), uint(8921462130417174e2) / 1000); // give up some precision
-
-        // TODO test in pool test and compare with actual result
     }
 
     function testVaultInfo() public {
@@ -216,5 +214,14 @@ contract LiquidatorInfoTest is BCdpManagerTestBase {
         assertEq(availableBiteInArt, 0);
         assertEq(availableBiteInDaiWei, 0);
         assertTrue(! canCallBiteNow);
+    }
+
+    function testTimeToTopup() public {
+        uint cdp = openCdp(1 ether, 50 ether);
+        osm.setH(60 * 60);
+        osm.setZ(currTime - 24 * 60); // now it is 00:24
+
+        (,,,,,,,,uint timeToTopup) = info.getCushionInfoFlat(cdp,getMembers()[0], 4);
+        assertEq(timeToTopup, 6 * 60);
     }
 }
