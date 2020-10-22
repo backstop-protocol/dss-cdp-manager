@@ -803,7 +803,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 130 * 1e18);
+        pipETH.poke(bytes32(uint(130 * 1e18)));
 
         (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow) = info.getBiteInfoFlat(cdp, address(members[0]));
         assertEq(availableBiteInArt, 110 ether / 4);
@@ -858,7 +858,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 130 * 1e18);
+        pipETH.poke(bytes32(uint(130 * 1e18)));
 
         //uint ethBefore = vat.gem("ETH", address(members[0]));
         this.file(address(cat), "ETH", "chop", WAD + WAD/10);
@@ -884,7 +884,7 @@ contract PoolTest is BCdpManagerTestBase {
     }
 
     function doBite(FakeMember m, Pool pool, uint cdp, uint dart, bool rate) internal {
-        (bytes32 price32) = realPrice.read("ETH");
+        (bytes32 price32) = pipETH.read();
         uint price = uint(price32);
 
         uint shrn = pool.shrn();
@@ -934,7 +934,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 130 * 1e18);
+        pipETH.poke(bytes32(uint(130 * 1e18)));
 
         this.file(address(cat), "ETH", "chop", WAD + WAD/10);
         pool.setProfitParams(935, 1000); // 6.5% goes to jar
@@ -993,7 +993,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 130 * 1e18);
+        pipETH.poke(bytes32(uint(130 * 1e18)));
 
         members[0].doBite(pool, cdp, 15 ether, 1);
         members[0].doBite(pool, cdp, 11 ether + 1, 1);
@@ -1019,7 +1019,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 130 * 1e18);
+        pipETH.poke(bytes32(uint(130 * 1e18)));
 
         members[3].doBite(pool, cdp, 15 ether, 1);
     }
@@ -1041,7 +1041,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 130 * 1e18);
+        pipETH.poke(bytes32(uint(130 * 1e18)));
 
         members[0].doBite(pool, cdp, 15 ether, 1 ether);
     }
@@ -1071,7 +1071,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 149 * 1e18);
+        pipETH.poke(bytes32(uint(149 * 1e18)));
 
         this.file(address(cat), "ETH", "chop", WAD + WAD/10);
         pool.setProfitParams(935, 1000); // 6.5% goes to jar
@@ -1139,7 +1139,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 140 * 1e18);
+        pipETH.poke(bytes32(uint(140 * 1e18)));
         jug.drip("ETH");
         (, uint currRate,,,) = vat.ilks("ETH");
 
@@ -1265,7 +1265,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 140 * 1e18);
+        pipETH.poke(bytes32(uint(140 * 1e18)));
         jug.drip("ETH");
 
         // uint ethBefore = vat.gem("ETH", address(members[0]));
@@ -1440,7 +1440,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 130 * 1e18);
+        pipETH.poke(bytes32(uint(130 * 1e18)));
 
         // Update DAI to USD rate
         FakeDaiToUsdPriceFeed dai2usd = FakeDaiToUsdPriceFeed(address(pool.dai2usd()));
@@ -1489,7 +1489,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 130 * 1e18);
+        pipETH.poke(bytes32(uint(130 * 1e18)));
 
         // Update DAI to USD rate
         FakeDaiToUsdPriceFeed dai2usd = FakeDaiToUsdPriceFeed(address(pool.dai2usd()));
@@ -1538,7 +1538,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 130 * 1e18);
+        pipETH.poke(bytes32(uint(130 * 1e18)));
 
         // Update DAI to USD rate
         FakeDaiToUsdPriceFeed dai2usd = FakeDaiToUsdPriceFeed(address(pool.dai2usd()));
@@ -1590,7 +1590,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 130 * 1e18);
+        pipETH.poke(bytes32(uint(130 * 1e18)));
 
         // Update DAI to USD rate
         FakeDaiToUsdPriceFeed dai2usd = FakeDaiToUsdPriceFeed(address(pool.dai2usd()));

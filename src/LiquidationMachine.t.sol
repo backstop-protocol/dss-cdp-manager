@@ -1,10 +1,11 @@
 pragma solidity ^0.5.12;
 
 import { Vat, Jug } from "dss-deploy/DssDeploy.t.base.sol";
-import { BCdpManagerTestBase, Hevm, FakeUser } from "./BCdpManager.t.sol";
+import { BCdpManagerTestBase, Hevm, FakeUser, ChainLog } from "./BCdpManager.t.sol";
 import { LiquidationMachine } from "./LiquidationMachine.sol";
 import { BCdpScore } from "./BCdpScore.sol";
 import { BCdpManager } from "./BCdpManager.sol";
+import { ChainLogConnector } from "./ChainLogConnector.sol";
 
 contract FakePool {
     function doTopup(LiquidationMachine lm, uint cdp, uint dtopup) public {
@@ -38,7 +39,12 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
 
         fPool = new FakePool();
         BCdpScore score = new BCdpScore();
-        manager = new BCdpManager(address(vat), address(end), address(fPool), address(realPrice), address(score));
+        ChainLog log = new ChainLog();
+        ChainLogConnector cc = new ChainLogConnector(address(vat), address(log));
+        log.setAddress("MCD_CAT", address(cat));
+        cc.setCat();
+        manager = new BCdpManager(address(vat), address(cc), address(fPool), address(bud), address(score));
+        bud.authorize(address(manager));
         score.setManager(address(manager));
         fPool.doHope(vat, address(manager));
         lm = LiquidationMachine(manager);
@@ -164,7 +170,6 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         osm.setPrice(70 * 1e18); // 1 ETH = 50 DAI
         pipETH.poke(bytes32(uint(70 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 70 * 1e18);
 
         fPool.doBite(lm, cdp, 15 ether);
         assertTrue(lm.bitten(cdp));
@@ -232,7 +237,6 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         osm.setPrice(70 * 1e18); // 1 ETH = 70 DAI
         pipETH.poke(bytes32(uint(70 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 70 * 1e18);
 
         uint daiBefore = vat.dai(address(fPool));
         uint dink = fPool.doBite(lm, cdp, 10 ether);
@@ -254,7 +258,6 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         osm.setPrice(70 * 1e18); // 1 ETH = 70 DAI
         pipETH.poke(bytes32(uint(70 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 70 * 1e18);
 
         uint daiBefore = vat.dai(address(fPool));
         uint dink = fPool.doBite(lm, cdp, 50 ether);
@@ -276,7 +279,6 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         osm.setPrice(70 * 1e18); // 1 ETH = 70 DAI
         pipETH.poke(bytes32(uint(70 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 70 * 1e18);
 
         // bite 10, 15, 25
         uint daiBefore; uint dink; uint daiAfter;
@@ -324,7 +326,6 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         osm.setPrice(70 * 1e18); // 1 ETH = 70 DAI
         pipETH.poke(bytes32(uint(70 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 70 * 1e18);
 
         // bite 10, 15
         uint daiBefore; uint dink; uint daiAfter;
@@ -345,7 +346,6 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         osm.setPrice(700 * 1e18); // 1 ETH = 700 DAI
         pipETH.poke(bytes32(uint(700 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 700 * 1e18);
 
         // bite 15
         daiBefore = vat.dai(address(fPool));
@@ -370,7 +370,6 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         osm.setPrice(70 * 1e18); // 1 ETH = 70 DAI
         pipETH.poke(bytes32(uint(70 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 70 * 1e18);
 
         // bite 10, 15
         uint daiBefore; uint dink; uint daiAfter;
@@ -406,7 +405,6 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         osm.setPrice(70 * 1e18); // 1 ETH = 70 DAI
         pipETH.poke(bytes32(uint(70 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 70 * 1e18);
 
         fPool.doBite(lm, cdp, 50 ether + 1);
     }
@@ -423,7 +421,6 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
 
 
         spotter.poke("ETH");
-        realPrice.set("ETH", 75 * 1e18);
 
         address urn = manager.urns(cdp);
         bytes32 ilk = manager.ilks(cdp);
@@ -457,7 +454,6 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         osm.setPrice(70 * 1e18); // 1 ETH = 70 DAI
         pipETH.poke(bytes32(uint(70 * 1e18)));
         spotter.poke("ETH");
-        realPrice.set("ETH", 70 * 1e18);
 
         assertTrue(! lm.bitten(cdp));
 
