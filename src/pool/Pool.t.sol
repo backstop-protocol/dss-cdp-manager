@@ -28,6 +28,10 @@ contract FakeMember is FakeUser {
     }
 }
 
+contract FakeChainLink {
+    function latestAnswer() external pure returns(int) { return 2549152947092904; }
+}
+
 contract PoolTest is BCdpManagerTestBase {
     uint currTime;
     FakeMember member;
@@ -61,7 +65,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         member = members[0];
 
-        info = new FlatLiquidatorInfo(LiquidationMachine(manager));
+        info = new FlatLiquidatorInfo(LiquidationMachine(manager), address(new FakeChainLink()));
     }
 
     function getMembers() internal view returns(address[] memory) {
@@ -464,7 +468,7 @@ contract PoolTest is BCdpManagerTestBase {
         {
             (uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
              uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
-             bool canCallTopupNow) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
+             bool canCallTopupNow, bool shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
 
             assertEq(cushionSizeInWei, dtab / RAY);
             assertEq(numLiquidators, 4);
@@ -473,6 +477,7 @@ contract PoolTest is BCdpManagerTestBase {
             assertTrue(shouldProvideCushion);
             assertTrue(shouldProvideCushionIfAllHaveBalance);
             assertTrue(canCallTopupNow);
+            assertTrue(! shouldUntop);
         }
 
         members[0].doTopup(pool, cdp);
@@ -515,7 +520,7 @@ contract PoolTest is BCdpManagerTestBase {
         {
             (uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
              uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
-             bool canCallTopupNow) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
+             bool canCallTopupNow, bool shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
 
             assertEq(cushionSizeInWei, dtab / RAY);
             assertEq(numLiquidators, 2);
@@ -524,10 +529,11 @@ contract PoolTest is BCdpManagerTestBase {
             assertTrue(shouldProvideCushion);
             assertTrue(shouldProvideCushionIfAllHaveBalance);
             assertTrue(canCallTopupNow);
+            assertTrue(! shouldUntop);
 
             (cushionSizeInWei, numLiquidators, cushionSizeInWeiIfAllHaveBalance,
              numLiquidatorsIfAllHaveBalance, shouldProvideCushion, shouldProvideCushionIfAllHaveBalance,
-             canCallTopupNow) = info.getCushionInfoFlat(cdp,address(members[1]), 4);
+             canCallTopupNow, shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[1]), 4);
 
             assertEq(cushionSizeInWei, dtab / RAY);
             assertEq(numLiquidators, 2);
@@ -536,6 +542,7 @@ contract PoolTest is BCdpManagerTestBase {
             assertTrue(shouldProvideCushion);
             assertTrue(shouldProvideCushionIfAllHaveBalance);
             assertTrue(canCallTopupNow);
+            assertTrue(! shouldUntop);
         }
 
         members[0].doTopup(pool, cdp);
@@ -578,7 +585,7 @@ contract PoolTest is BCdpManagerTestBase {
         {
             (uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
              uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
-             bool canCallTopupNow) = info.getCushionInfoFlat(cdp, singleMember[0], 4);
+             bool canCallTopupNow, bool shouldUntop,) = info.getCushionInfoFlat(cdp, singleMember[0], 4);
 
             assertEq(cushionSizeInWei, dtab / RAY);
             assertEq(numLiquidators, 1);
@@ -587,13 +594,14 @@ contract PoolTest is BCdpManagerTestBase {
             assertTrue(shouldProvideCushion);
             assertTrue(shouldProvideCushionIfAllHaveBalance);
             assertTrue(canCallTopupNow);
+            assertTrue(! shouldUntop);
 
             address loser = address(members[0]);
             if(singleMember[0] == loser) loser = address(members[1]);
 
             (cushionSizeInWei, numLiquidators, cushionSizeInWeiIfAllHaveBalance,
              numLiquidatorsIfAllHaveBalance, shouldProvideCushion, shouldProvideCushionIfAllHaveBalance,
-             canCallTopupNow) = info.getCushionInfoFlat(cdp, loser, 4);
+             canCallTopupNow, /*shouldUntop*/,) = info.getCushionInfoFlat(cdp, loser, 4);
 
             assertEq(cushionSizeInWei, dtab / RAY);
             assertEq(numLiquidators, 1);
@@ -609,7 +617,7 @@ contract PoolTest is BCdpManagerTestBase {
 
             (cushionSizeInWei, numLiquidators, cushionSizeInWeiIfAllHaveBalance,
              numLiquidatorsIfAllHaveBalance, shouldProvideCushion, shouldProvideCushionIfAllHaveBalance,
-             canCallTopupNow) = info.getCushionInfoFlat(cdp, singleMember[0], 4);
+             canCallTopupNow, bool shouldUntop,) = info.getCushionInfoFlat(cdp, singleMember[0], 4);
 
              assertEq(cushionSizeInWei, dtab / RAY);
              assertEq(numLiquidators, 1);
@@ -737,8 +745,17 @@ contract PoolTest is BCdpManagerTestBase {
         // do dummy frob, which will call topup
         manager.frob(cdp, -1, 0);
 
+        (,,,,,,, bool shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
+        assertTrue(shouldUntop);
+
+        (,,,,,,, shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[1]), 4);
+        assertTrue(! shouldUntop);
+
         // do untop
         members[0].doUntop(pool, cdp);
+
+        (,,,,,,,shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
+        assertTrue(! shouldUntop);
 
         (uint cdpArt2, uint cdpCushion2, address[] memory winners2, uint[] memory bite2) = pool.getCdpData(cdp);
         bite2; //shh
@@ -755,8 +772,18 @@ contract PoolTest is BCdpManagerTestBase {
         // do dummy frob, which will call topup
         manager.frob(cdp, -1, 0);
 
+        for(uint i = 0 ; i < 4 ; i++) {
+            (,,,,,,, bool shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[i]), 4);
+            assertTrue(shouldUntop);
+        }
+
         // do untop
         members[0].doUntop(pool, cdp);
+
+        for(uint i = 0 ; i < 4 ; i++) {
+            (,,,,,,, bool shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[i]), 4);
+            assertTrue(! shouldUntop);
+        }
 
         (uint cdpArt2, uint cdpCushion2, address[] memory winners2, uint[] memory bite2) = pool.getCdpData(cdp);
         bite2; //shh
@@ -788,7 +815,7 @@ contract PoolTest is BCdpManagerTestBase {
         // set next price to 150, which means a cushion of 10 dai is expected
         osm.setPrice(150 * 1e18); // 1 ETH = 150 DAI
 
-        (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow) =
+        (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow,) =
             info.getBiteInfoFlat(cdp, address(members[0]));
         assertEq(availableBiteInArt ,0);
         assertEq(availableBiteInDaiWei ,0);
@@ -796,7 +823,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         members[0].doTopup(pool, cdp);
 
-        (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow) = info.getBiteInfoFlat(cdp, address(members[0]));
+        (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow,) = info.getBiteInfoFlat(cdp, address(members[0]));
         assertEq(availableBiteInArt, 110 ether / 4);
         assertEq(availableBiteInDaiWei, 110 ether / 4);
         assertTrue(! canCallBiteNow);
@@ -805,7 +832,7 @@ contract PoolTest is BCdpManagerTestBase {
         spotter.poke("ETH");
         pipETH.poke(bytes32(uint(130 * 1e18)));
 
-        (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow) = info.getBiteInfoFlat(cdp, address(members[0]));
+        (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow,) = info.getBiteInfoFlat(cdp, address(members[0]));
         assertEq(availableBiteInArt, 110 ether / 4);
         assertEq(availableBiteInDaiWei, 110 ether / 4);
         assertTrue(canCallBiteNow);
@@ -820,7 +847,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         assertTrue(_100Percent >= expectedEth);
 
-        (,,uint debtInDaiWei,,uint expectedEthReturn) = info.getVaultInfoFlat(cdp, 130 * 1e18);
+        (,,uint debtInDaiWei,,uint expectedEthReturn,) = info.getVaultInfoFlat(cdp, 130 * 1e18);
         assertEq(debtInDaiWei, 110 ether);
         assertEq(expectedEth * 11 / 1e3, expectedEthReturn / 1e3);
         assertEq(expectedEth, info.getExpectedEthReturn("ETH",10 ether,130e18));
@@ -1065,9 +1092,18 @@ contract PoolTest is BCdpManagerTestBase {
 
         (, uint prevRate,,,) = vat.ilks("ETH");
 
+        (,,,uint timeTillBite) = info.getBiteInfoFlat(cdp, address(members[3]));
+        assertEq(timeTillBite, 29 * 60);
+
         members[3].doTopup(pool, cdp);
 
+        (,,,timeTillBite) = info.getBiteInfoFlat(cdp, address(members[3]));
+        assertEq(timeTillBite, 29 * 60);
+
         forwardTime(30 minutes);
+
+        (,,,timeTillBite) = info.getBiteInfoFlat(cdp, address(members[3]));
+        assertEq(timeTillBite, 0);
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
@@ -1158,7 +1194,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         for(uint i = 0 ; i < 4 ; i++) {
             {
-                (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow) = info.getBiteInfoFlat(cdp, address(members[i]));
+                (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow,) = info.getBiteInfoFlat(cdp, address(members[i]));
                 assertEq(availableBiteInArt, 26 ether);
                 assertEq(availableBiteInDaiWei, 26 ether * currRate / RAY);
                 assertTrue(canCallBiteNow);
@@ -1166,7 +1202,7 @@ contract PoolTest is BCdpManagerTestBase {
                 assertEq(expectedEth, memberEstimatedInk);
 
                 if(i > 0) {
-                    (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow) = info.getBiteInfoFlat(cdp, address(members[i - 1]));
+                    (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow,) = info.getBiteInfoFlat(cdp, address(members[i - 1]));
                     assertEq(availableBiteInArt, 0);
                     assertEq(availableBiteInDaiWei, 0);
                 }
@@ -1308,7 +1344,7 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(pool.availBite(cdp, address(members[2])), 0);
         assertEq(pool.availBite(cdp, address(members[3])), 0);
 
-        // jar should get 2% 
+        // jar should get 2%
         assertEq(vat.gem("ETH", address(jar)), expectedEthInJar * 4);
     }
 

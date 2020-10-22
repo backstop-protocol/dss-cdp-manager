@@ -14,6 +14,10 @@ contract SpotLike {
     function ilks(bytes32 ilk) external view returns (address pip, uint mat);
 }
 
+contract ChainlinkLike {
+    function latestAnswer() external view returns (int256);
+}
+
 contract LiquidatorInfo is Math {
     struct VaultInfo {
         bytes32 collateralType;
@@ -21,6 +25,7 @@ contract LiquidatorInfo is Math {
         uint debtInDaiWei;
         uint liquidationPrice;
         uint expectedEthReturnWithCurrentPrice;
+        bool expectedEthReturnBetterThanChainlinkPrice;
     }
 
     struct CushionInfo {
@@ -33,12 +38,16 @@ contract LiquidatorInfo is Math {
         bool shouldProvideCushion;
         bool shouldProvideCushionIfAllHaveBalance;
 
+        uint minimumTimeBeforeCallingTopup;
         bool canCallTopupNow;
+
+        bool shouldCallUntop;
     }
 
     struct BiteInfo {
         uint availableBiteInArt;
         uint availableBiteInDaiWei;
+        uint minimumTimeBeforeCallingBite;
         bool canCallBiteNow;
     }
 
@@ -53,14 +62,16 @@ contract LiquidatorInfo is Math {
     VatLike public vat;
     Pool pool;
     SpotLike spot;
+    ChainlinkLike chainlink;
 
     uint constant RAY = 1e27;
 
-    constructor(LiquidationMachine manager_) public {
+    constructor(LiquidationMachine manager_, address chainlink_) public {
         manager = manager_;
         vat = VatLike(address(manager.vat()));
         pool = Pool(manager.pool());
         spot = SpotLike(address(pool.spot()));
+        chainlink = ChainlinkLike(chainlink_);
     }
 
     function getExpectedEthReturn(bytes32 collateralType, uint daiDebt, uint currentPriceFeedValue) public returns(uint) {
@@ -92,6 +103,15 @@ contract LiquidatorInfo is Math {
         if(currentPriceFeedValue > 0) {
             info.expectedEthReturnWithCurrentPrice = getExpectedEthReturn(info.collateralType, info.debtInDaiWei, currentPriceFeedValue);
         }
+
+        int chainlinkPrice = chainlink.latestAnswer();
+        uint chainlinkEthReturn = 0;
+        if(chainlinkPrice > 0) {
+            chainlinkEthReturn = mul(info.debtInDaiWei, uint(chainlinkPrice)) / 1 ether;
+        }
+
+        info.expectedEthReturnBetterThanChainlinkPrice =
+            info.expectedEthReturnWithCurrentPrice > chainlinkEthReturn;
     }
 
     function getCushionInfo(uint cdp, address me, uint numMembers) public view returns(CushionInfo memory info) {
@@ -120,13 +140,33 @@ contract LiquidatorInfo is Math {
         }
 
         info.canCallTopupNow = should && info.shouldProvideCushion;
+        if(manager.cushion(cdp) == 0) {
+            (uint cdpArt,, address[] memory cdpWinners,uint[] memory bite) = pool.getCdpData(cdp);
+            for(uint i = 0 ; i < cdpWinners.length ; i++) {
+                if(me == cdpWinners[i]) {
+                    uint perUserArt = cdpArt / cdpWinners.length;
+                    if(perUserArt > bite[i]) {
+                        info.shouldCallUntop = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        bytes32 ilk = manager.ilks(cdp);
+        uint topupTime = add(uint(pool.osm(ilk).zzz()), uint(pool.osm(ilk).hop())/2);
+        info.minimumTimeBeforeCallingTopup = (now >= topupTime) ? 0 : sub(topupTime, now);
     }
 
     function getBiteInfo(uint cdp, address me) public view returns(BiteInfo memory info) {
         info.availableBiteInArt = pool.availBite(cdp, me);
-        if(info.availableBiteInArt == 0) return info;
 
         bytes32 ilk = manager.ilks(cdp);
+        uint priceUpdateTime = add(uint(pool.osm(ilk).zzz()), uint(pool.osm(ilk).hop()));
+        info.minimumTimeBeforeCallingBite = (now >= priceUpdateTime) ? 0 : sub(priceUpdateTime, now);
+
+        if(info.availableBiteInArt == 0) return info;
+
         address u = manager.urns(cdp);
         (,uint rate, uint currSpot,,) = vat.ilks(ilk);
 
@@ -158,23 +198,24 @@ contract LiquidatorInfo is Math {
 }
 
 contract FlatLiquidatorInfo is LiquidatorInfo {
-    constructor(LiquidationMachine manager_) public LiquidatorInfo(manager_) {}
+    constructor(LiquidationMachine manager_, address chainlink_) public LiquidatorInfo(manager_, chainlink_) {}
 
     function getVaultInfoFlat(uint cdp, uint currentPriceFeedValue) external
         returns(bytes32 collateralType, uint collateralInWei, uint debtInDaiWei, uint liquidationPrice,
-                uint expectedEthReturnWithCurrentPrice) {
+                uint expectedEthReturnWithCurrentPrice, bool expectedEthReturnBetterThanChainlinkPrice) {
         VaultInfo memory info = getVaultInfo(cdp, currentPriceFeedValue);
         collateralType = info.collateralType;
         collateralInWei = info.collateralInWei;
         debtInDaiWei = info.debtInDaiWei;
         liquidationPrice = info.liquidationPrice;
         expectedEthReturnWithCurrentPrice = info.expectedEthReturnWithCurrentPrice;
+        expectedEthReturnBetterThanChainlinkPrice = info.expectedEthReturnBetterThanChainlinkPrice;
     }
 
     function getCushionInfoFlat(uint cdp, address me, uint numMembers) external view
         returns(uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
                 uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
-                bool canCallTopupNow) {
+                bool canCallTopupNow, bool shouldCallUntop, uint minimumTimeBeforeCallingTopup) {
 
         CushionInfo memory info = getCushionInfo(cdp, me, numMembers);
         cushionSizeInWei = info.cushionSizeInWei;
@@ -184,13 +225,16 @@ contract FlatLiquidatorInfo is LiquidatorInfo {
         shouldProvideCushion = info.shouldProvideCushion;
         shouldProvideCushionIfAllHaveBalance = info.shouldProvideCushionIfAllHaveBalance;
         canCallTopupNow = info.canCallTopupNow;
+        shouldCallUntop = info.shouldCallUntop;
+        minimumTimeBeforeCallingTopup = info.minimumTimeBeforeCallingTopup;
     }
 
     function getBiteInfoFlat(uint cdp, address me) external view
-        returns(uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow) {
+        returns(uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow,uint minimumTimeBeforeCallingBite) {
         BiteInfo memory info = getBiteInfo(cdp, me);
         availableBiteInArt = info.availableBiteInArt;
         availableBiteInDaiWei = info.availableBiteInDaiWei;
         canCallBiteNow = info.canCallBiteNow;
+        minimumTimeBeforeCallingBite = info.minimumTimeBeforeCallingBite;
     }
 }

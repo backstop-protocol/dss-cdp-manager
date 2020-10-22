@@ -3,6 +3,7 @@ pragma solidity ^0.5.12;
 import { BCdpManagerTestBase, Hevm, FakeUser, FakeDaiToUsdPriceFeed } from "./../BCdpManager.t.sol";
 import { BCdpScore } from "./../BCdpScore.sol";
 import { Pool } from "./../pool/Pool.sol";
+import { Math } from "./../Math.sol";
 import { LiquidationMachine } from "./../LiquidationMachine.sol";
 import { FlatLiquidatorInfo } from "./LiquidatorInfo.sol";
 
@@ -33,7 +34,11 @@ contract FakeMember is FakeUser {
     }
 }
 
-contract LiquidatorInfoTest is BCdpManagerTestBase {
+contract FakeChainLink {
+    function latestAnswer() external pure returns(int) { return 2549152947092904; }
+}
+
+contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
     uint currTime;
     FakeMember member;
     FakeMember[] members;
@@ -66,7 +71,7 @@ contract LiquidatorInfoTest is BCdpManagerTestBase {
 
         member = members[0];
 
-        info = new FlatLiquidatorInfo(LiquidationMachine(address(manager)));
+        info = new FlatLiquidatorInfo(LiquidationMachine(address(manager)), address(new FakeChainLink()));
 
         assertEq(address(LiquidationMachine(address(manager)).pool()),address(pool));
 
@@ -179,13 +184,11 @@ contract LiquidatorInfoTest is BCdpManagerTestBase {
         // 96.5% of it goes to liquidator = 0.8921462130417174 ETH = 8921462130417174e2 wei
         // liquidator get 1% extra, because of dai/usd price =
         assertEq(returnValue / uint(1000), uint(8921462130417174e2) / 1000); // give up some precision
-
-        // TODO test in pool test and compare with actual result
     }
 
     function testVaultInfo() public {
         uint cdp = openCdp(1 ether, 50 ether);
-        (bytes32 collateralType, uint collateralInWei, uint debtInDaiWei, uint liquidationPrice, uint ethReturn) = info.getVaultInfoFlat(cdp, 100e18);
+        (bytes32 collateralType, uint collateralInWei, uint debtInDaiWei, uint liquidationPrice, uint ethReturn,) = info.getVaultInfoFlat(cdp, 100e18);
 
         assertEq(collateralType, bytes32("ETH"));
         assertEq(collateralInWei, 1 ether);
@@ -200,7 +203,7 @@ contract LiquidatorInfoTest is BCdpManagerTestBase {
 
         assertTrue(newDaiDebt > 50 ether);
 
-        (collateralType, collateralInWei, debtInDaiWei, liquidationPrice, ethReturn) = info.getVaultInfoFlat(cdp, 100e18);
+        (collateralType, collateralInWei, debtInDaiWei, liquidationPrice, ethReturn,) = info.getVaultInfoFlat(cdp, 100e18);
         assertEq(collateralType, bytes32("ETH"));
         assertEq(collateralInWei, 1 ether);
         assertEq(debtInDaiWei, newDaiDebt);
@@ -211,10 +214,25 @@ contract LiquidatorInfoTest is BCdpManagerTestBase {
     function testBiteInfoNotInBite() public {
         uint cdp = openCdp(1 ether, 50 ether);
         address firstMember = getMembers()[0];
-        (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow) = info.getBiteInfoFlat(cdp, firstMember);
 
+        timeReset();
+        osm.setH(60 * 60);
+        osm.setZ(currTime - 24 * 60); // now it is 00:24
+
+        (uint availableBiteInArt, uint availableBiteInDaiWei, bool canCallBiteNow, uint timeTillBite) = info.getBiteInfoFlat(cdp, firstMember);
+
+        assertEq(timeTillBite, 36 * 60);
         assertEq(availableBiteInArt, 0);
         assertEq(availableBiteInDaiWei, 0);
         assertTrue(! canCallBiteNow);
+    }
+
+    function testTimeToTopup() public {
+        uint cdp = openCdp(1 ether, 50 ether);
+        osm.setH(60 * 60);
+        osm.setZ(currTime - 24 * 60); // now it is 00:24
+
+        (,,,,,,,,uint timeToTopup) = info.getCushionInfoFlat(cdp,getMembers()[0], 4);
+        assertEq(timeToTopup, 6 * 60);
     }
 }

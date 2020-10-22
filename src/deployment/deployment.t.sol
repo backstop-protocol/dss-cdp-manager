@@ -83,6 +83,10 @@ contract FakeScore {
     }
 }
 
+contract FakeChainLink {
+    function latestAnswer() external pure returns(int) { return 2549152947092904; }
+}
+
 contract WETH is DSToken("WETH") {
 }
 
@@ -222,7 +226,7 @@ contract BDeployer {
         pool.setProfitParams(94, 100);
         pool.setOwner(msg.sender);
 
-        info = new LiquidatorInfo(LiquidationMachine(man));
+        info = new LiquidatorInfo(LiquidationMachine(man), address(new FakeChainLink()));
     }
 
     function poke(int ink, int art) public {
