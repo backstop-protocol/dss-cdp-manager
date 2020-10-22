@@ -34,6 +34,8 @@ contract LiquidatorInfo is Math {
         bool shouldProvideCushionIfAllHaveBalance;
 
         bool canCallTopupNow;
+
+        bool shouldCallUntop;
     }
 
     struct BiteInfo {
@@ -120,6 +122,18 @@ contract LiquidatorInfo is Math {
         }
 
         info.canCallTopupNow = should && info.shouldProvideCushion;
+        if(manager.cushion(cdp) == 0) {
+            (uint art,uint cushion, address[] memory winners,uint[] memory bite) = pool.getCdpData(cdp);
+            for(uint i = 0 ; i < winners.length ; i++) {
+                if(me == winners[i]) {
+                    uint perUserArt = art / winners.length;
+                    if(perUserArt > bite[i]) {
+                        info.shouldCallUntop = true;
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     function getBiteInfo(uint cdp, address me) public view returns(BiteInfo memory info) {
@@ -174,7 +188,7 @@ contract FlatLiquidatorInfo is LiquidatorInfo {
     function getCushionInfoFlat(uint cdp, address me, uint numMembers) external view
         returns(uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
                 uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
-                bool canCallTopupNow) {
+                bool canCallTopupNow, bool shouldCallUntop) {
 
         CushionInfo memory info = getCushionInfo(cdp, me, numMembers);
         cushionSizeInWei = info.cushionSizeInWei;
@@ -184,6 +198,7 @@ contract FlatLiquidatorInfo is LiquidatorInfo {
         shouldProvideCushion = info.shouldProvideCushion;
         shouldProvideCushionIfAllHaveBalance = info.shouldProvideCushionIfAllHaveBalance;
         canCallTopupNow = info.canCallTopupNow;
+        shouldCallUntop = info.shouldCallUntop;
     }
 
     function getBiteInfoFlat(uint cdp, address me) external view
