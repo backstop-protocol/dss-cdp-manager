@@ -4,9 +4,46 @@ import { BCdpManagerTestBase, Hevm, FakeUser, FakeOSM, BCdpManager, FakeDaiToUsd
 import { DssDeployTestBase, Vat, Cat, Spotter, DSValue } from "dss-deploy/DssDeploy.t.base.sol";
 import { BCdpScore } from "./../BCdpScore.sol";
 import { Pool } from "./../pool/Pool.sol";
-import { FakeMember } from "./../pool/Pool.t.sol";
+import { LiquidatorInfo } from "./../info/LiquidatorInfo.sol";
 import { LiquidationMachine, PriceFeedLike } from "./../LiquidationMachine.sol";
+import { DSToken } from "ds-token/token.sol";
+import { GemJoin } from "dss/join.sol";
+import { Dai } from "dss/dai.sol";
+import { DaiJoin } from "dss/join.sol";
 
+contract FakeMember is FakeUser {
+    function doDeposit(Pool pool, uint rad) public {
+        pool.deposit(rad);
+    }
+
+    function doWithdraw(Pool pool, uint rad) public {
+        pool.withdraw(rad);
+    }
+
+    function doTopup(Pool pool, uint cdp) public {
+        pool.topup(cdp);
+    }
+
+    function doUntop(Pool pool, uint cdp) public {
+        pool.untop(cdp);
+    }
+
+    function doPoolBite(Pool pool, uint cdp, uint dart, uint minInk) public returns(uint){
+        return pool.bite(cdp, dart, minInk);
+    }
+
+    function doAllowance(Dai dai, address guy, uint wad) public {
+        dai.approve(guy, wad);
+    }
+
+    function doJoin(DaiJoin join, uint wad) public {
+        join.join(address(this), wad);
+    }
+
+    function doExit(GemJoin join, uint wad) public {
+        join.exit(address(this), wad);
+    }
+}
 
 contract PriceFeed is DSValue {
     function read(bytes32 ilk) external view returns(bytes32) {
@@ -25,7 +62,7 @@ contract FakeCat {
 contract FakeJug {
     function ilks(bytes32 ilk) public view returns(uint duty, uint rho) {
         duty = 1e27;
-        rho = now;
+        rho = (now / 1 hours) * 1 hours - 10 minutes;
         ilk; // shhhh
     }
     function base() public pure returns(uint) {
@@ -46,26 +83,38 @@ contract FakeScore {
     }
 }
 
-contract VatDeployer {
+contract WETH is DSToken("WETH") {
+}
+
+contract FakeDssDeployer {
     Vat public vat;
     Spotter public spotter;
     PriceFeed public pipETH;
-    FakeEnd public end;
-    BCdpManager public man;
-    Pool public pool;
     FakeOSM public osm;
-    FakeMember public member;
-    BCdpScore public score;
-    FakeDaiToUsdPriceFeed public dai2usdPriceFeed;
-
-    uint public cdpUnsafe;
-    uint public cdpUnsafeNext;
-    uint public cdpCustom;
+    Dai public dai;
+    DaiJoin public daiJoin;
+    WETH public weth;
+    FakeEnd public end;
+    GemJoin public ethJoin;
 
     constructor() public {
         vat = new Vat();
         vat.rely(msg.sender);
         //vat.deny(address(this));
+
+        weth = new WETH();
+        weth.mint(2**128);
+        ethJoin = new GemJoin(address(vat), "ETH-A", address(weth));
+        vat.rely(address(ethJoin));
+
+        dai = new Dai(0);
+        daiJoin = new DaiJoin(address(vat), address(dai));
+        dai.rely(address(daiJoin));
+
+        weth.approve(address(ethJoin), uint(-1));
+        ethJoin.join(address(this), 1e18 * 1e6);
+        uint vatBalance = vat.gem("ETH-A",address(this));
+        assert(vatBalance == 1e18 * 1e6);
 
         pipETH = new PriceFeed();
 
@@ -95,28 +144,23 @@ contract VatDeployer {
         vat.file("ETH-A", "dust", 20000000000000000000000000000000000000000000000);
         //vat.fold("ETH-A", address(0), 1020041883692153436559184034);
 
+        pipETH.poke(bytes32(uint(300 * 10 ** 18))); // Price 300 DAI = 1 ETH (precision 18)
         spotter.poke("ETH-A");
 
-        dai2usdPriceFeed = new FakeDaiToUsdPriceFeed();
-        pool = new Pool(address(vat), address(0x12345678), address(spotter), address(new FakeJug()), address(dai2usdPriceFeed));
-        score = BCdpScore(address(new FakeScore())); //new BCdpScore();
-        man = new BCdpManager(address(vat), address(end), address(pool), address(pipETH), address(score));
-        //score.setManager(address(man));
-        pool.setCdpManager(man);
-        pool.setOsm("ETH-A", address(osm));
-        address[] memory members = new address[](2);
-        member = new FakeMember();
-        members[0] = address(member);
-        members[1] = 0xf214dDE57f32F3F34492Ba3148641693058D4A9e;
-        pool.setMembers(members);
-        pool.setIlk("ETH-A", true);
-        pool.setProfitParams(94, 100);
-        pool.setOwner(msg.sender);
+        assert(vat.live() == 1);
+
+
+        vat.frob("ETH-A",address(this),address(this),address(this),1e18 * 1e6,100e6 * 1e18);
+
+        assert(vat.dai(address(this)) == 100e6 * 1e45);
+
+        vat.hope(address(daiJoin));
+        daiJoin.exit(address(this), 100e6 * 1e18);
+
+        assert(100e6 * 1e18 == dai.balanceOf(address(this)));
     }
 
-    function poke(int ink, int art) public {
-        member.doHope(vat, address(pool));
-
+    function poke(BCdpManager man, address guy, int ink, int art) public returns(uint cdpUnsafeNext, uint cdpCustom){
         pipETH.poke(bytes32(uint(300 * 10 ** 18))); // Price 300 DAI = 1 ETH (precision 18)
         spotter.poke("ETH-A");
         osm.setPrice(uint(300 * 10 ** 18));
@@ -125,27 +169,68 @@ contract VatDeployer {
         vat.slip("ETH-A", address(this), 1e18 * 1e20);
 
         // get tons of dai
-        uint cdp = man.open("ETH-A", address(this));
-        vat.flux("ETH-A", address(this), man.urns(cdp), 1e7 * 1 ether);
-        man.frob(cdp, 1e6 * 1 ether, 1e7 * 10 ether);
-        man.move(cdp, address(member), 1e6 * 1 ether * 1e27);
-        man.move(cdp, address(0xf214dDE57f32F3F34492Ba3148641693058D4A9e), 1e6 * 1 ether * 1e27);
-
-        cdpUnsafe = man.open("ETH-A", address(this));
-        vat.flux("ETH-A", address(this), man.urns(cdpUnsafe), 1e7 * 1 ether);
-        man.frob(cdpUnsafe, 1 ether, 100 ether);
+        dai.transfer(guy, 100e3 * 1e18);
 
         cdpUnsafeNext = man.open("ETH-A", address(this));
         vat.flux("ETH-A", address(this), man.urns(cdpUnsafeNext), 1e7 * 1 ether);
-        man.frob(cdpUnsafeNext, 1 ether, 98 ether);
+        man.frob(cdpUnsafeNext, 1 ether, 100 ether);
 
         cdpCustom = man.open("ETH-A", address(this));
         vat.flux("ETH-A", address(this), man.urns(cdpCustom), 1e7 * 1 ether);
         man.frob(cdpCustom, ink, art);
 
-        pipETH.poke(bytes32(uint(149 ether)));
-        osm.setPrice(uint(146 ether));
+        pipETH.poke(bytes32(uint(151 ether)));
         spotter.poke("ETH-A");
+        osm.setPrice(uint(146 ether));
+        pipETH.poke(bytes32(uint(146 ether)));
+    }
+
+    function updatePrice() public {
+        spotter.poke("ETH-A");
+    }
+}
+
+contract BDeployer {
+    BCdpManager public man;
+    Pool public pool;
+    FakeMember public member;
+    BCdpScore public score;
+    FakeDaiToUsdPriceFeed public dai2usdPriceFeed;
+    LiquidatorInfo public info;
+
+    uint public cdpUnsafeNext;
+    uint public cdpCustom;
+
+    FakeDssDeployer public deployer;
+
+    constructor(FakeDssDeployer d) public {
+        deployer = d;
+        dai2usdPriceFeed = new FakeDaiToUsdPriceFeed();
+        pool = new Pool(address(d.vat()), address(0x12345678), address(d.spotter()), address(new FakeJug()), address(dai2usdPriceFeed));
+        score = BCdpScore(address(new FakeScore())); //new BCdpScore();
+        man = new BCdpManager(address(d.vat()), address(d.end()), address(pool), address(d.pipETH()), address(score));
+        //score.setManager(address(man));
+        pool.setCdpManager(man);
+        pool.setOsm("ETH-A", address(d.osm()));
+        address[] memory members = new address[](3);
+        member = new FakeMember();
+        members[0] = address(member);
+        members[1] = 0xf214dDE57f32F3F34492Ba3148641693058D4A9e;
+        members[2] = 0x534447900af78B74bB693470cfE7c7dFd54A974c;
+        pool.setMembers(members);
+        pool.setIlk("ETH-A", true);
+        pool.setProfitParams(94, 100);
+        pool.setOwner(msg.sender);
+
+        info = new LiquidatorInfo(LiquidationMachine(man));
+    }
+
+    function poke(int ink, int art) public {
+        (cdpUnsafeNext, cdpCustom) = deployer.poke(man, msg.sender, ink, art);
+    }
+
+    function updatePrice() public {
+        deployer.updatePrice();
     }
 }
 
@@ -157,7 +242,7 @@ contract DeploymentTest is BCdpManagerTestBase {
     FakeMember nonMember;
     address constant JAR = address(0x1234567890);
 
-    VatDeployer deployer;
+    //VatDeployer deployer;
 
     function setUp() public {
         super.setUp();
@@ -181,8 +266,6 @@ contract DeploymentTest is BCdpManagerTestBase {
         pool.setMembers(memoryMembers);
 
         member = members[0];
-
-
     }
 
     function getMembers() internal view returns(address[] memory) {
@@ -194,44 +277,60 @@ contract DeploymentTest is BCdpManagerTestBase {
         return memoryMembers;
     }
 
+    function testGas() public {
+        FakeDssDeployer x = new FakeDssDeployer();
+        BDeployer b = new BDeployer(x);
+    }
+
     function testDeployer() public {
+        FakeDssDeployer ds = new FakeDssDeployer();
+        BDeployer b = new BDeployer(ds);
 
-        deployer = new VatDeployer();
+        b.poke(1 ether, 20 ether);
+        b.poke(2 ether, 30 ether);
 
-        deployer.poke(1 ether, 20 ether);
-        deployer.poke(2 ether, 30 ether);
+        assertTrue(ds.dai().balanceOf(address(this)) > 1e5 * 1e18);
 
-        assertTrue(deployer.vat().gem("ETH-A", address(this)) >= 1e18 * 1e6);
-        assertEq(deployer.vat().live(), 1);
+        assertEq(ds.vat().live(), 1);
 
-        uint cdp1 = deployer.cdpUnsafe();
-        uint cdp2 = deployer.cdpUnsafeNext();
-        uint cdp3 = deployer.cdpCustom();
+        uint cdp2 = b.cdpUnsafeNext();
+        uint cdp3 = b.cdpCustom();
 
-        address urn = deployer.man().urns(cdp3);
-        (uint ink, uint art) = deployer.vat().urns("ETH-A", urn);
+        address urn = b.man().urns(cdp3);
+        (uint ink, uint art) = ds.vat().urns("ETH-A", urn);
         assertEq(ink, 2 ether);
         assertEq(art, 30 ether);
 
         uint dartX;
-        (dartX,,) = deployer.pool().topAmount(cdp1);
-        assertTrue(dartX > 0);
-        (dartX,,) = deployer.pool().topAmount(cdp2);
+        (dartX,,) = b.pool().topAmount(cdp2);
         assertTrue(dartX > 0);
 
-        FakeMember m = deployer.member();
-        Pool p = deployer.pool();
-        Vat v = deployer.vat();
+        Pool p = b.pool();
+        Vat v = ds.vat();
 
-        m.doHope(vat, address(p));
+        FakeMember m = b.member();
+        ds.dai().transfer(address(m), 1e22);
+
+        m.doAllowance(ds.dai(), address(ds.daiJoin()), uint(-1));
+        m.doJoin(ds.daiJoin(), 1e22);
+        assertEq(v.dai(address(m)), 1e22 * 1e27);
+
+        m.doHope(v, address(p));
         m.doDeposit(p, 1e22 * 1e27);
         assertEq(p.rad(address(m)), 1e22 * 1e27);
-        m.doTopup(p, cdp1);
-        m.doBite(p, cdp1, 100 ether, 0);
 
-        assertEq(v.gem("ETH-A", address(m)), 712885906040268456);
+        forwardTime(1);
+        p.topupInfo(cdp2); // just make sure it does not crash
 
         m.doTopup(p, cdp2);
+        ds.updatePrice();
+        m.doBite(p, cdp2, 100 ether, 0);
+
+        assertEq(v.gem("ETH-A", address(m)), 727534246575342465);
+
+        assertEq(ds.weth().balanceOf(address(m)), 0);
+        m.doExit(ds.ethJoin(), 727534246575342465);
+        assertEq(ds.weth().balanceOf(address(m)), 727534246575342465);
     }
 
     function openCdp(uint ink, uint art) internal returns(uint){
