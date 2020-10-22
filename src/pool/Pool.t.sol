@@ -28,6 +28,10 @@ contract FakeMember is FakeUser {
     }
 }
 
+contract FakeChainLink {
+    function latestAnswer() external pure returns(int) { return 2549152947092904; }
+}
+
 contract PoolTest is BCdpManagerTestBase {
     uint currTime;
     FakeMember member;
@@ -61,7 +65,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         member = members[0];
 
-        info = new FlatLiquidatorInfo(LiquidationMachine(manager));
+        info = new FlatLiquidatorInfo(LiquidationMachine(manager), address(new FakeChainLink()));
     }
 
     function getMembers() internal view returns(address[] memory) {
@@ -843,7 +847,7 @@ contract PoolTest is BCdpManagerTestBase {
 
         assertTrue(_100Percent >= expectedEth);
 
-        (,,uint debtInDaiWei,,uint expectedEthReturn) = info.getVaultInfoFlat(cdp, 130 * 1e18);
+        (,,uint debtInDaiWei,,uint expectedEthReturn,) = info.getVaultInfoFlat(cdp, 130 * 1e18);
         assertEq(debtInDaiWei, 110 ether);
         assertEq(expectedEth * 11 / 1e3, expectedEthReturn / 1e3);
         assertEq(expectedEth, info.getExpectedEthReturn("ETH",10 ether,130e18));

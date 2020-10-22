@@ -14,6 +14,10 @@ contract SpotLike {
     function ilks(bytes32 ilk) external view returns (address pip, uint mat);
 }
 
+contract ChainlinkLike {
+    function latestAnswer() external view returns (int256);
+}
+
 contract LiquidatorInfo is Math {
     struct VaultInfo {
         bytes32 collateralType;
@@ -21,6 +25,7 @@ contract LiquidatorInfo is Math {
         uint debtInDaiWei;
         uint liquidationPrice;
         uint expectedEthReturnWithCurrentPrice;
+        bool expectedEthReturnBetterThanChainlinkPrice;
     }
 
     struct CushionInfo {
@@ -57,14 +62,16 @@ contract LiquidatorInfo is Math {
     VatLike public vat;
     Pool pool;
     SpotLike spot;
+    ChainlinkLike chainlink;
 
     uint constant RAY = 1e27;
 
-    constructor(LiquidationMachine manager_) public {
+    constructor(LiquidationMachine manager_, address chainlink_) public {
         manager = manager_;
         vat = VatLike(address(manager.vat()));
         pool = Pool(manager.pool());
         spot = SpotLike(address(pool.spot()));
+        chainlink = ChainlinkLike(chainlink_);
     }
 
     function getExpectedEthReturn(bytes32 collateralType, uint daiDebt, uint currentPriceFeedValue) public returns(uint) {
@@ -96,6 +103,15 @@ contract LiquidatorInfo is Math {
         if(currentPriceFeedValue > 0) {
             info.expectedEthReturnWithCurrentPrice = getExpectedEthReturn(info.collateralType, info.debtInDaiWei, currentPriceFeedValue);
         }
+
+        int chainlinkPrice = chainlink.latestAnswer();
+        uint chainlinkEthReturn = 0;
+        if(chainlinkPrice > 0) {
+            chainlinkEthReturn = mul(info.debtInDaiWei, uint(chainlinkPrice)) / 1 ether;
+        }
+
+        info.expectedEthReturnBetterThanChainlinkPrice =
+            info.expectedEthReturnWithCurrentPrice > chainlinkEthReturn;
     }
 
     function getCushionInfo(uint cdp, address me, uint numMembers) public view returns(CushionInfo memory info) {
@@ -145,7 +161,7 @@ contract LiquidatorInfo is Math {
     function getBiteInfo(uint cdp, address me) public view returns(BiteInfo memory info) {
         info.availableBiteInArt = pool.availBite(cdp, me);
 
-        bytes32 ilk = manager.ilks(cdp);        
+        bytes32 ilk = manager.ilks(cdp);
         uint priceUpdateTime = add(uint(pool.osm(ilk).zzz()), uint(pool.osm(ilk).hop()));
         info.minimumTimeBeforeCallingBite = (now >= priceUpdateTime) ? 0 : sub(priceUpdateTime, now);
 
@@ -182,17 +198,18 @@ contract LiquidatorInfo is Math {
 }
 
 contract FlatLiquidatorInfo is LiquidatorInfo {
-    constructor(LiquidationMachine manager_) public LiquidatorInfo(manager_) {}
+    constructor(LiquidationMachine manager_, address chainlink_) public LiquidatorInfo(manager_, chainlink_) {}
 
     function getVaultInfoFlat(uint cdp, uint currentPriceFeedValue) external
         returns(bytes32 collateralType, uint collateralInWei, uint debtInDaiWei, uint liquidationPrice,
-                uint expectedEthReturnWithCurrentPrice) {
+                uint expectedEthReturnWithCurrentPrice, bool expectedEthReturnBetterThanChainlinkPrice) {
         VaultInfo memory info = getVaultInfo(cdp, currentPriceFeedValue);
         collateralType = info.collateralType;
         collateralInWei = info.collateralInWei;
         debtInDaiWei = info.debtInDaiWei;
         liquidationPrice = info.liquidationPrice;
         expectedEthReturnWithCurrentPrice = info.expectedEthReturnWithCurrentPrice;
+        expectedEthReturnBetterThanChainlinkPrice = info.expectedEthReturnBetterThanChainlinkPrice;
     }
 
     function getCushionInfoFlat(uint cdp, address me, uint numMembers) external view

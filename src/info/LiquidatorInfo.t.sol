@@ -34,6 +34,10 @@ contract FakeMember is FakeUser {
     }
 }
 
+contract FakeChainLink {
+    function latestAnswer() external pure returns(int) { return 2549152947092904; }
+}
+
 contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
     uint currTime;
     FakeMember member;
@@ -67,7 +71,7 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
 
         member = members[0];
 
-        info = new FlatLiquidatorInfo(LiquidationMachine(address(manager)));
+        info = new FlatLiquidatorInfo(LiquidationMachine(address(manager)), address(new FakeChainLink()));
 
         assertEq(address(LiquidationMachine(address(manager)).pool()),address(pool));
 
@@ -184,7 +188,7 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
 
     function testVaultInfo() public {
         uint cdp = openCdp(1 ether, 50 ether);
-        (bytes32 collateralType, uint collateralInWei, uint debtInDaiWei, uint liquidationPrice, uint ethReturn) = info.getVaultInfoFlat(cdp, 100e18);
+        (bytes32 collateralType, uint collateralInWei, uint debtInDaiWei, uint liquidationPrice, uint ethReturn,) = info.getVaultInfoFlat(cdp, 100e18);
 
         assertEq(collateralType, bytes32("ETH"));
         assertEq(collateralInWei, 1 ether);
@@ -199,7 +203,7 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
 
         assertTrue(newDaiDebt > 50 ether);
 
-        (collateralType, collateralInWei, debtInDaiWei, liquidationPrice, ethReturn) = info.getVaultInfoFlat(cdp, 100e18);
+        (collateralType, collateralInWei, debtInDaiWei, liquidationPrice, ethReturn,) = info.getVaultInfoFlat(cdp, 100e18);
         assertEq(collateralType, bytes32("ETH"));
         assertEq(collateralInWei, 1 ether);
         assertEq(debtInDaiWei, newDaiDebt);
