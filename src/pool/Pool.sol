@@ -308,7 +308,6 @@ contract Pool is Math, DSAuth, LibNote {
 
     function untop(uint cdp) external onlyMember note {
         require(man.cushion(cdp) == 0, "untop: should-be-untopped-by-user");
-        require(! man.bitten(cdp), "topup: in-bite-process");
 
         resetCdp(cdp);
     }
