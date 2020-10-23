@@ -364,6 +364,11 @@ contract Pool is Math, DSAuth, LibNote {
         }
         uint availArt = sub(maxArt, cdpData[cdp].bite[index]);
 
-        return availArt;
+        address urn = man.urns(cdp);
+        bytes32 ilk = man.ilks(cdp);
+        (,uint art) = vat.urns(ilk, urn);
+        uint remainingArt = add(art, man.cushion(cdp));
+
+        return availArt < remainingArt ? availArt : remainingArt;
     }
 }

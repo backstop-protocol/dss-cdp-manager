@@ -1039,6 +1039,8 @@ contract PoolTest is BCdpManagerTestBase {
 
         vat.frob("ETH",urn,urn,address(this),0,-int(art));
 
+        assertEq(pool.availBite(cdp,address(members[1])), cushion);
+
         doBite(members[1], pool, cdp, cushion, false);
 
         assertTrue(LiquidationMachine(manager).bitten(cdp));
