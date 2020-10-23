@@ -270,6 +270,43 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         assertEq(vat.gem("ETH", address(fPool)), dink);
     }
 
+    // test bite, liquidate in two shots, after bite, user repay his debt via vat
+    function testBiteUserRepaidViaVat() public {
+        uint cdp = openCdp(1 ether, 50 ether);
+        fPool.doTopup(lm, cdp, 10 ether);
+
+        // reach bite state
+        osm.setPrice(70 * 1e18); // 1 ETH = 70 DAI
+        pipETH.poke(bytes32(uint(70 * 1e18)));
+        spotter.poke("ETH");
+
+        uint daiBefore = vat.dai(address(fPool));
+        uint dink = fPool.doBite(lm, cdp, 25 ether);
+        assertTrue(lm.bitten(cdp));
+        uint daiAfter = vat.dai(address(fPool));
+
+        assertEq(dink, (25 ether * 113 / 100)/uint(70));
+        // 5 ETH were reused from the cushion
+        assertEq(daiBefore - daiAfter, (25 ether - 5 ether) * RAY);
+        assertEq(vat.gem("ETH", address(fPool)), dink);
+
+        uint cushion = lm.cushion(cdp);
+        assertEq(cushion, 5 ether);
+
+        address urn = lm.urns(cdp);
+        (, uint art) = vat.urns("ETH", urn);
+        lm.move(cdp,address(this),50 ether * RAY);
+
+        vat.frob("ETH",urn,urn,address(this),0,-int(art));
+
+        daiBefore = vat.dai(address(fPool));
+
+        dink = fPool.doBite(lm, cdp, cushion);
+        daiAfter = vat.dai(address(fPool));
+        assertEq(dink, (5 ether * 113 / 100) / uint(70));
+        assertEq(daiAfter, daiBefore); // everything from the cushion
+    }
+
     // test bite, liquidate in three steps
     function testBiteIn3Steps() public {
         uint cdp = openCdp(1 ether, 50 ether);
