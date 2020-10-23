@@ -305,6 +305,7 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         daiAfter = vat.dai(address(fPool));
         assertEq(dink, (5 ether * 113 / 100) / uint(70));
         assertEq(daiAfter, daiBefore); // everything from the cushion
+        assertEq(lm.cushion(cdp), 0);
     }
 
     // test bite, liquidate in three steps
