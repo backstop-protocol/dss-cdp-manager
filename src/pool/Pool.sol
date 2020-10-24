@@ -308,7 +308,6 @@ contract Pool is Math, DSAuth, LibNote {
 
     function untop(uint cdp) external onlyMember note {
         require(man.cushion(cdp) == 0, "untop: should-be-untopped-by-user");
-        require(! man.bitten(cdp), "topup: in-bite-process");
 
         resetCdp(cdp);
     }
@@ -320,12 +319,13 @@ contract Pool is Math, DSAuth, LibNote {
 
         cdpData[cdp].bite[index] = add(cdpData[cdp].bite[index], dart);
 
-        uint radBefore = vat.dai(address(this));
         uint dink = man.bite(cdp, dart);
-        uint radAfter = vat.dai(address(this));
 
         // update user rad
-        rad[msg.sender] = sub(rad[msg.sender], sub(radBefore, radAfter));
+        bytes32 ilk = man.ilks(cdp);
+        (,uint rate,,,) = vat.ilks(ilk);
+        uint cushionPortion = mul(cdpData[cdp].cushion, dart) / cdpData[cdp].art;
+        rad[msg.sender] = sub(rad[msg.sender], sub(mul(dart, rate), cushionPortion));
 
         // DAI to USD rate, scale 1e18
         uint d2uPrice = dai2usd.getMarketPrice(DAI_MARKET_ID);
@@ -341,8 +341,6 @@ contract Pool is Math, DSAuth, LibNote {
         uint userInk = sub(dink, dMemberInk);
 
         require(dMemberInk >= minInk, "bite: low-dink");
-
-        bytes32 ilk = man.ilks(cdp);
 
         vat.flux(ilk, address(this), jar, userInk);
         vat.flux(ilk, address(this), msg.sender, dMemberInk);
@@ -366,6 +364,11 @@ contract Pool is Math, DSAuth, LibNote {
         }
         uint availArt = sub(maxArt, cdpData[cdp].bite[index]);
 
-        return availArt;
+        address urn = man.urns(cdp);
+        bytes32 ilk = man.ilks(cdp);
+        (,uint art) = vat.urns(ilk, urn);
+        uint remainingArt = add(art, man.cushion(cdp));
+
+        return availArt < remainingArt ? availArt : remainingArt;
     }
 }

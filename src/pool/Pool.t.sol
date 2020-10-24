@@ -986,13 +986,86 @@ contract PoolTest is BCdpManagerTestBase {
 
         // check balances
         // 0 consumed 26 ether
-        assertEq(radToWei(pool.rad(address(members[0]))), radToWei((1000 ether - 26 ether) * RAY - 1)-1);
+        assertEq(radToWei(pool.rad(address(members[0]))), radToWei((1000 ether - 26 ether) * RAY - 1));
         // 1 consumed 24 ether
-        assertEq(radToWei(pool.rad(address(members[1]))), radToWei((950 ether - 24 ether) * RAY - 1)-1);
+        assertEq(radToWei(pool.rad(address(members[1]))), radToWei((950 ether - 24 ether) * RAY - 1));
         // 2 consumed 17 ether
         assertEq(radToWei(pool.rad(address(members[2]))), radToWei((900 ether - 17 ether) * RAY - 1));
         // 3 consumed 0 ether
         assertEq(radToWei(pool.rad(address(members[3]))), radToWei((850 ether - 0 ether) * RAY - 1));
+
+        // check that cdp was reset
+        (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
+        assertEq(cdpArt, 0);
+        assertEq(cdpCushion, 0);
+        assertEq(winners.length, 0);
+        assertEq(bite.length, 0);
+    }
+
+    function testBiteInPartsThenUserRepayViaVat() public {
+        timeReset();
+
+        members[0].doDeposit(pool, 1000 ether * RAY);
+        members[1].doDeposit(pool, 950 ether * RAY);
+        members[2].doDeposit(pool, 900 ether * RAY);
+        members[3].doDeposit(pool, 850 ether * RAY);
+
+        uint cdp = openCdp(1 ether, 101 ether); // 1 eth, 100 dai
+
+        // set next price to 150, which means a cushion of 10 dai is expected
+        osm.setPrice(150 * 1e18); // 1 ETH = 149 DAI
+
+        members[3].doTopup(pool, cdp);
+
+        pipETH.poke(bytes32(uint(150 * 1e18)));
+        spotter.poke("ETH");
+        pipETH.poke(bytes32(uint(130 * 1e18)));
+
+        uint cushion = 1 ether + 1 ether; // additional ether for safty
+        assertEq(LiquidationMachine(manager).cushion(cdp), cushion);
+
+        this.file(address(cat), "ETH", "chop", WAD + WAD/10);
+        pool.setProfitParams(935, 1000); // 6.5% goes to jar
+
+        doBite(members[0], pool, cdp, 10 ether, false);
+
+        cushion = uint(2 ether) * 91 / 101 + 1;
+        assertEq(LiquidationMachine(manager).cushion(cdp), cushion);
+
+        address urn = LiquidationMachine(manager).urns(cdp);
+        (, uint art) = vat.urns("ETH", urn);
+
+        LiquidationMachine(manager).move(cdp,address(this),101 ether * RAY);
+
+        vat.frob("ETH",urn,urn,address(this),0,-int(art));
+
+        assertEq(pool.availBite(cdp,address(members[1])), cushion);
+
+        doBite(members[1], pool, cdp, cushion, false);
+
+        assertTrue(LiquidationMachine(manager).bitten(cdp));
+
+        // fast forward until no longer bitten
+        forwardTime(60*60 + 1);
+        assertTrue(! LiquidationMachine(manager).bitten(cdp));
+
+        assertEq(LiquidationMachine(manager).cushion(cdp), 0);
+        members[3].doUntop(pool, cdp);
+
+        // check balances
+        // 0 consumed 10 ether
+        assertEq(radToWei(pool.rad(address(members[0]))), radToWei((1000 ether - 10 ether) * RAY - 1));
+        // 1 consumed 1.8... ether
+        assertEq(radToWei(pool.rad(address(members[1]))), radToWei((950 ether - cushion) * RAY - 1));
+        // 2 consumed 0 ether
+        assertEq(radToWei(pool.rad(address(members[2]))), radToWei((900 ether - 0 ether) * RAY - 1));
+        // 3 consumed 0 ether
+        assertEq(radToWei(pool.rad(address(members[3]))), radToWei((850 ether - 0 ether) * RAY - 1));
+
+        uint balanceSum = pool.rad(address(members[0])) + pool.rad(address(members[1]))
+              + pool.rad(address(members[2])) + pool.rad(address(members[3]));
+
+        assertEq(radToWei(balanceSum) + 1, radToWei(vat.dai(address(pool))));
 
         // check that cdp was reset
         (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
@@ -1115,9 +1188,6 @@ contract PoolTest is BCdpManagerTestBase {
         jug.drip("ETH");
         (, uint currentRate,,,) = vat.ilks("ETH");
 
-        uint perMemberCushion = LiquidationMachine(manager).cushion(cdp) / 4;
-        uint perMemberCushionGain = (perMemberCushion * currentRate - perMemberCushion * prevRate) / RAY;
-
         doBite(members[1], pool, cdp, 15 ether, true);
         doBite(members[0], pool, cdp, 13 ether, true);
         doBite(members[2], pool, cdp, 17 ether, true);
@@ -1138,11 +1208,11 @@ contract PoolTest is BCdpManagerTestBase {
 
         // check balances
         // 0 consumed 26 ether
-        assertEq(radToWei(pool.rad(address(members[0]))), 1000 ether + perMemberCushionGain - 26 ether * currentRate / RAY - 2); //radToWei((1000 ether - 26 ether * 11/10) * RAY - 1)-1);
+        assertEq(radToWei(pool.rad(address(members[0]))), 1000 ether - 26 ether * currentRate / RAY - 1); //radToWei((1000 ether - 26 ether * 11/10) * RAY - 1)-1);
         // 1 consumed 24 ether
-        assertEq(radToWei(pool.rad(address(members[1]))), 950 ether + perMemberCushionGain * 24 / 26 - 24 ether * currentRate / RAY - 1);
+        assertEq(radToWei(pool.rad(address(members[1]))), 950 ether - 24 ether * currentRate / RAY - 1);
         // 2 consumed 17 ether
-        assertEq(radToWei(pool.rad(address(members[2]))), 900 ether + perMemberCushionGain * 17 / 26 - 17 ether * currentRate / RAY);
+        assertEq(radToWei(pool.rad(address(members[2]))), 900 ether - 17 ether * currentRate / RAY -1);
         // 3 consumed 0 ether
         assertEq(radToWei(pool.rad(address(members[3]))), 850 ether - 1);
 
@@ -1178,9 +1248,6 @@ contract PoolTest is BCdpManagerTestBase {
         pipETH.poke(bytes32(uint(140 * 1e18)));
         jug.drip("ETH");
         (, uint currRate,,,) = vat.ilks("ETH");
-
-        uint perMemberCushion = LiquidationMachine(manager).cushion(cdp) / 4;
-        uint perMemberCushionGain = (perMemberCushion * currRate - perMemberCushion * prevRate) / RAY;
 
         // uint ethBefore = vat.gem("ETH", address(members[0]));
         this.file(address(cat), "ETH", "chop", WAD + WAD/10);
@@ -1218,7 +1285,7 @@ contract PoolTest is BCdpManagerTestBase {
             cdpCushion;//shh
             winners;//shh
             assertEq(bite[i], 26 ether);
-            assertAlmostEq(pool.rad(address(members[i]))/RAY, 1000 ether - 50 ether * i + perMemberCushionGain - (26 ether * currRate)/RAY);
+            assertAlmostEq(pool.rad(address(members[i]))/RAY, 1000 ether - 50 ether * i - (26 ether * currRate)/RAY);
         }
 
         // jar should get 2%
