@@ -232,7 +232,7 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
         osm.setH(60 * 60);
         osm.setZ(currTime - 24 * 60); // now it is 00:24
 
-        (,,,,,,,,uint timeToTopup) = info.getCushionInfoFlat(cdp,getMembers()[0], 4);
+        (,,,,,,,,uint timeToTopup,) = info.getCushionInfoFlat(cdp,getMembers()[0], 4);
         assertEq(timeToTopup, 6 * 60);
     }
 }

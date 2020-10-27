@@ -468,7 +468,7 @@ contract PoolTest is BCdpManagerTestBase {
         {
             (uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
              uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
-             bool canCallTopupNow, bool shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
+             bool canCallTopupNow, bool shouldUntop,, bool isToppedUp) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
 
             assertEq(cushionSizeInWei, dtab / RAY);
             assertEq(numLiquidators, 4);
@@ -478,6 +478,7 @@ contract PoolTest is BCdpManagerTestBase {
             assertTrue(shouldProvideCushionIfAllHaveBalance);
             assertTrue(canCallTopupNow);
             assertTrue(! shouldUntop);
+            assertTrue(! isToppedUp);
         }
 
         members[0].doTopup(pool, cdp);
@@ -520,7 +521,7 @@ contract PoolTest is BCdpManagerTestBase {
         {
             (uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
              uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
-             bool canCallTopupNow, bool shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
+             bool canCallTopupNow, bool shouldUntop,,) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
 
             assertEq(cushionSizeInWei, dtab / RAY);
             assertEq(numLiquidators, 2);
@@ -533,7 +534,7 @@ contract PoolTest is BCdpManagerTestBase {
 
             (cushionSizeInWei, numLiquidators, cushionSizeInWeiIfAllHaveBalance,
              numLiquidatorsIfAllHaveBalance, shouldProvideCushion, shouldProvideCushionIfAllHaveBalance,
-             canCallTopupNow, shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[1]), 4);
+             canCallTopupNow, shouldUntop,,) = info.getCushionInfoFlat(cdp,address(members[1]), 4);
 
             assertEq(cushionSizeInWei, dtab / RAY);
             assertEq(numLiquidators, 2);
@@ -585,7 +586,7 @@ contract PoolTest is BCdpManagerTestBase {
         {
             (uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
              uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
-             bool canCallTopupNow, bool shouldUntop,) = info.getCushionInfoFlat(cdp, singleMember[0], 4);
+             bool canCallTopupNow, bool shouldUntop,,) = info.getCushionInfoFlat(cdp, singleMember[0], 4);
 
             assertEq(cushionSizeInWei, dtab / RAY);
             assertEq(numLiquidators, 1);
@@ -601,7 +602,7 @@ contract PoolTest is BCdpManagerTestBase {
 
             (cushionSizeInWei, numLiquidators, cushionSizeInWeiIfAllHaveBalance,
              numLiquidatorsIfAllHaveBalance, shouldProvideCushion, shouldProvideCushionIfAllHaveBalance,
-             canCallTopupNow, /*shouldUntop*/,) = info.getCushionInfoFlat(cdp, loser, 4);
+             canCallTopupNow, /*shouldUntop*/,,) = info.getCushionInfoFlat(cdp, loser, 4);
 
             assertEq(cushionSizeInWei, dtab / RAY);
             assertEq(numLiquidators, 1);
@@ -745,17 +746,20 @@ contract PoolTest is BCdpManagerTestBase {
         // do dummy frob, which will call topup
         manager.frob(cdp, -1, 0);
 
-        (,,,,,,, bool shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
+        (,,,,,,, bool shouldUntop,,bool isToppedUp) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
         assertTrue(shouldUntop);
+        assertTrue(isToppedUp);
 
-        (,,,,,,, shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[1]), 4);
+        (,,,,,,, shouldUntop,, isToppedUp) = info.getCushionInfoFlat(cdp,address(members[1]), 4);
         assertTrue(! shouldUntop);
+        assertTrue(isToppedUp);
 
         // do untop
         members[0].doUntop(pool, cdp);
 
-        (,,,,,,,shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
+        (,,,,,,,shouldUntop,, isToppedUp) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
         assertTrue(! shouldUntop);
+        assertTrue(! isToppedUp);
 
         (uint cdpArt2, uint cdpCushion2, address[] memory winners2, uint[] memory bite2) = pool.getCdpData(cdp);
         bite2; //shh
@@ -773,16 +777,18 @@ contract PoolTest is BCdpManagerTestBase {
         manager.frob(cdp, -1, 0);
 
         for(uint i = 0 ; i < 4 ; i++) {
-            (,,,,,,, bool shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[i]), 4);
+            (,,,,,,, bool shouldUntop,,bool isToppedUp) = info.getCushionInfoFlat(cdp,address(members[i]), 4);
             assertTrue(shouldUntop);
+            assertTrue(isToppedUp);
         }
 
         // do untop
         members[0].doUntop(pool, cdp);
 
         for(uint i = 0 ; i < 4 ; i++) {
-            (,,,,,,, bool shouldUntop,) = info.getCushionInfoFlat(cdp,address(members[i]), 4);
+            (,,,,,,, bool shouldUntop,, bool isToppedUp) = info.getCushionInfoFlat(cdp,address(members[i]), 4);
             assertTrue(! shouldUntop);
+            assertTrue(! isToppedUp);
         }
 
         (uint cdpArt2, uint cdpCushion2, address[] memory winners2, uint[] memory bite2) = pool.getCdpData(cdp);
