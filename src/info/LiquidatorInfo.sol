@@ -42,6 +42,7 @@ contract LiquidatorInfo is Math {
         bool canCallTopupNow;
 
         bool shouldCallUntop;
+        bool isToppedUp;
     }
 
     struct BiteInfo {
@@ -115,6 +116,9 @@ contract LiquidatorInfo is Math {
     }
 
     function getCushionInfo(uint cdp, address me, uint numMembers) public view returns(CushionInfo memory info) {
+        (uint cdpArt,uint cushion, address[] memory cdpWinners,uint[] memory bite) = pool.getCdpData(cdp);
+        info.isToppedUp = cushion > 0;
+
         (uint dart, uint dtab, uint art, bool should, address[] memory winners) = pool.topupInfo(cdp);
         if(dart == 0) return info;
 
@@ -139,9 +143,8 @@ contract LiquidatorInfo is Math {
             info.shouldProvideCushionIfAllHaveBalance = true;
         }
 
-        info.canCallTopupNow = should && info.shouldProvideCushion;
-        if(manager.cushion(cdp) == 0) {
-            (uint cdpArt,, address[] memory cdpWinners,uint[] memory bite) = pool.getCdpData(cdp);
+        info.canCallTopupNow = !info.isToppedUp && should && info.shouldProvideCushion;
+        if(info.isToppedUp) {
             for(uint i = 0 ; i < cdpWinners.length ; i++) {
                 if(me == cdpWinners[i]) {
                     uint perUserArt = cdpArt / cdpWinners.length;
@@ -215,7 +218,8 @@ contract FlatLiquidatorInfo is LiquidatorInfo {
     function getCushionInfoFlat(uint cdp, address me, uint numMembers) external view
         returns(uint cushionSizeInWei, uint numLiquidators, uint cushionSizeInWeiIfAllHaveBalance,
                 uint numLiquidatorsIfAllHaveBalance, bool shouldProvideCushion, bool shouldProvideCushionIfAllHaveBalance,
-                bool canCallTopupNow, bool shouldCallUntop, uint minimumTimeBeforeCallingTopup) {
+                bool canCallTopupNow, bool shouldCallUntop, uint minimumTimeBeforeCallingTopup,
+                bool isToppedUp) {
 
         CushionInfo memory info = getCushionInfo(cdp, me, numMembers);
         cushionSizeInWei = info.cushionSizeInWei;
@@ -227,6 +231,7 @@ contract FlatLiquidatorInfo is LiquidatorInfo {
         canCallTopupNow = info.canCallTopupNow;
         shouldCallUntop = info.shouldCallUntop;
         minimumTimeBeforeCallingTopup = info.minimumTimeBeforeCallingTopup;
+        isToppedUp = info.isToppedUp;
     }
 
     function getBiteInfoFlat(uint cdp, address me) external view
