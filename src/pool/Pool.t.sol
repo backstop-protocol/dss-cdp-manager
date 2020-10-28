@@ -1736,10 +1736,17 @@ contract PoolTest is BCdpManagerTestBase {
     function testTopupAndRepay() public {
         uint cdp = testHappyTopup();
 
+        (,,, ,,, bool canCallTopupNow, bool shouldCallUntop,, bool isToppedUp) 
+            = info.getCushionInfoFlat(cdp,address(members[0]), 4);
+        assertTrue(! canCallTopupNow);
+        assertTrue(! shouldCallUntop);
+        assertTrue(isToppedUp);    
+
         // repay 50 DAI debt
         manager.frob(cdp, 0, -50 ether);
 
-        (,,, ,,, bool canCallTopupNow, bool shouldCallUntop,, bool isToppedUp) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
+        (,,, ,,, canCallTopupNow, shouldCallUntop,, isToppedUp) 
+            = info.getCushionInfoFlat(cdp,address(members[0]), 4);
         
         assertTrue(! canCallTopupNow);
         assertTrue(shouldCallUntop);
