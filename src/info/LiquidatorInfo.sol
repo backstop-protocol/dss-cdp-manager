@@ -120,10 +120,18 @@ contract LiquidatorInfo is Math {
         info.isToppedUp = cushion > 0;
 
         (uint dart, uint dtab, uint art, bool should, address[] memory winners) = pool.topupInfo(cdp);
-        if(dart == 0) return info;
 
-        info.cushionSizeInWei = dtab / RAY;
         info.numLiquidators = winners.length;
+        info.cushionSizeInWei = dtab / RAY;
+
+        if(dart == 0) {
+            if(info.isToppedUp) {
+                info.numLiquidatorsIfAllHaveBalance = winners.length;
+                info.cushionSizeInWei = cushion / RAY;
+            }
+
+            return info;
+        }
 
         if(art < pool.minArt()) {
             info.cushionSizeInWeiIfAllHaveBalance = info.cushionSizeInWei;
