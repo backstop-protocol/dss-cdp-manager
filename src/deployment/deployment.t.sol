@@ -342,6 +342,31 @@ contract DeploymentTest is BCdpManagerTestBase {
         assertEq(ds.weth().balanceOf(address(m)), 727534246575342465);
     }
 
+    function testDeployerMultiplePokes() public {
+        FakeDssDeployer ds = new FakeDssDeployer();
+        BDeployer b = new BDeployer(ds);
+
+        uint cdp1; uint cdp2; uint cdp3; uint cdp4;
+
+        b.poke(1 ether, 99 ether);
+        cdp1 = b.cdpUnsafeNext();
+        cdp2 = b.cdpCustom();
+
+        b.poke(1 ether, 98 ether);
+        cdp3 = b.cdpUnsafeNext();
+        cdp4 = b.cdpCustom();
+
+        uint dart;
+        (dart,,) = b.pool().topAmount(cdp1);
+        assertEq(dart,666);
+        (dart,,) = b.pool().topAmount(cdp2);
+        assertEq(dart,666);
+        (dart,,) = b.pool().topAmount(cdp3);
+        assertEq(dart,666);
+        (dart,,) = b.pool().topAmount(cdp4);
+        assertEq(dart,666);
+    }
+
     function openCdp(uint ink, uint art) internal returns(uint){
         uint cdp = manager.open("ETH", address(this));
 
