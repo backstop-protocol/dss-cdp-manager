@@ -59,6 +59,14 @@ contract LiquidatorInfo is Math {
         BiteInfo bite;
     }
 
+    // Struct to store local vars. This avoid stack too deep error
+    struct CdpDataVars {
+        uint cdpArt;
+        uint cushion;
+         address[] cdpWinners;
+         uint[] bite;
+    }
+
     LiquidationMachine manager;
     VatLike public vat;
     Pool pool;
@@ -116,10 +124,18 @@ contract LiquidatorInfo is Math {
     }
 
     function getCushionInfo(uint cdp, address me, uint numMembers) public view returns(CushionInfo memory info) {
-        (uint cdpArt,uint cushion, address[] memory cdpWinners,uint[] memory bite) = pool.getCdpData(cdp);
-        info.isToppedUp = cushion > 0;
+        CdpDataVars memory c;
+        (c.cdpArt, c.cushion, c.cdpWinners, c.bite) = pool.getCdpData(cdp);
+        info.isToppedUp = c.cushion > 0;
+        bool isUntoppedByUser = manager.cushion(cdp) == 0;
 
         (uint dart, uint dtab, uint art, bool should, address[] memory winners) = pool.topupInfo(cdp);
+
+        if(dart == 0) {
+            // If AlreadyToppedUp, then member shouldCallUntop when `dart = 0`
+            info.shouldCallUntop = info.isToppedUp && isUntoppedByUser;
+            return info;
+        }
 
         info.numLiquidators = winners.length;
         info.cushionSizeInWei = dtab / RAY;
@@ -152,11 +168,11 @@ contract LiquidatorInfo is Math {
         }
 
         info.canCallTopupNow = !info.isToppedUp && should && info.shouldProvideCushion;
-        if(info.isToppedUp) {
-            for(uint i = 0 ; i < cdpWinners.length ; i++) {
-                if(me == cdpWinners[i]) {
-                    uint perUserArt = cdpArt / cdpWinners.length;
-                    if(perUserArt > bite[i]) {
+        if(info.isToppedUp && isUntoppedByUser) {
+            for(uint i = 0 ; i < c.cdpWinners.length ; i++) {
+                if(me == c.cdpWinners[i]) {
+                    uint perUserArt = c.cdpArt / c.cdpWinners.length;
+                    if(perUserArt > c.bite[i]) {
                         info.shouldCallUntop = true;
                         break;
                     }
