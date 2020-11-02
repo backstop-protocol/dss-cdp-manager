@@ -131,19 +131,14 @@ contract LiquidatorInfo is Math {
 
         (uint dart, uint dtab, uint art, bool should, address[] memory winners) = pool.topupInfo(cdp);
 
-        if(dart == 0) {
-            // If AlreadyToppedUp, then member shouldCallUntop when `dart = 0`
-            info.shouldCallUntop = info.isToppedUp && isUntoppedByUser;
-            return info;
-        }
-
         info.numLiquidators = winners.length;
         info.cushionSizeInWei = dtab / RAY;
 
         if(dart == 0) {
+            info.shouldCallUntop = info.isToppedUp && isUntoppedByUser;
             if(info.isToppedUp) {
                 info.numLiquidatorsIfAllHaveBalance = winners.length;
-                info.cushionSizeInWei = cushion / RAY;
+                info.cushionSizeInWei = c.cushion / RAY;
             }
 
             return info;
