@@ -10,6 +10,7 @@ import { DSToken } from "ds-token/token.sol";
 import { GemJoin } from "dss/join.sol";
 import { Dai } from "dss/dai.sol";
 import { DaiJoin } from "dss/join.sol";
+import { OSMLike, BudConnector } from "./../bud/BudConnector.sol";
 
 contract FakeMember is FakeUser {
     function doDeposit(Pool pool, uint rad) public {
@@ -201,6 +202,7 @@ contract BDeployer {
     BCdpScore public score;
     FakeDaiToUsdPriceFeed public dai2usdPriceFeed;
     LiquidatorInfo public info;
+    BudConnector public budConnector;
 
     uint public cdpUnsafeNext;
     uint public cdpCustom;
@@ -215,11 +217,14 @@ contract BDeployer {
         man = new BCdpManager(address(d.vat()), address(d.end()), address(pool), address(d.pipETH()), address(score));
         //score.setManager(address(man));
         pool.setCdpManager(man);
-        pool.setOsm("ETH-A", address(d.osm()));
+        budConnector = new BudConnector(OSMLike(address(d.osm())));
+        budConnector.setPip(address(d.pipETH()), "ETH-A");
+        budConnector.authorize(address(pool));
+        pool.setOsm("ETH-A", address(budConnector));
         address[] memory members = new address[](3);
         member = new FakeMember();
         members[0] = address(member);
-        members[1] = 0xf214dDE57f32F3F34492Ba3148641693058D4A9e;
+        members[1] = 0xe6bD52f813D76ff4192058C307FeAffe52aA49FC;
         members[2] = 0x534447900af78B74bB693470cfE7c7dFd54A974c;
         pool.setMembers(members);
         pool.setIlk("ETH-A", true);
@@ -335,6 +340,31 @@ contract DeploymentTest is BCdpManagerTestBase {
         assertEq(ds.weth().balanceOf(address(m)), 0);
         m.doExit(ds.ethJoin(), 727534246575342465);
         assertEq(ds.weth().balanceOf(address(m)), 727534246575342465);
+    }
+
+    function testDeployerMultiplePokes() public {
+        FakeDssDeployer ds = new FakeDssDeployer();
+        BDeployer b = new BDeployer(ds);
+
+        uint cdp1; uint cdp2; uint cdp3; uint cdp4;
+
+        b.poke(1 ether, 99 ether);
+        cdp1 = b.cdpUnsafeNext();
+        cdp2 = b.cdpCustom();
+
+        b.poke(1 ether, 98 ether);
+        cdp3 = b.cdpUnsafeNext();
+        cdp4 = b.cdpCustom();
+
+        uint dart;
+        (dart,,) = b.pool().topAmount(cdp1);
+        assertTrue(dart > 0);
+        (dart,,) = b.pool().topAmount(cdp2);
+        assertTrue(dart > 0);
+        (dart,,) = b.pool().topAmount(cdp3);
+        assertTrue(dart > 0);
+        (dart,,) = b.pool().topAmount(cdp4);
+        assertTrue(dart > 0);
     }
 
     function openCdp(uint ink, uint art) internal returns(uint){

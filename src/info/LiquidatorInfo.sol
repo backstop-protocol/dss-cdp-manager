@@ -130,14 +130,19 @@ contract LiquidatorInfo is Math {
         bool isUntoppedByUser = manager.cushion(cdp) == 0;
 
         (uint dart, uint dtab, uint art, bool should, address[] memory winners) = pool.topupInfo(cdp);
+
+        info.numLiquidators = winners.length;
+        info.cushionSizeInWei = dtab / RAY;
+
         if(dart == 0) {
-            // If AlreadyToppedUp, then member shouldCallUntop when `dart = 0`
             info.shouldCallUntop = info.isToppedUp && isUntoppedByUser;
+            if(info.isToppedUp) {
+                info.numLiquidatorsIfAllHaveBalance = winners.length;
+                info.cushionSizeInWei = c.cushion / RAY;
+            }
+
             return info;
         }
-
-        info.cushionSizeInWei = dtab / RAY;
-        info.numLiquidators = winners.length;
 
         if(art < pool.minArt()) {
             info.cushionSizeInWeiIfAllHaveBalance = info.cushionSizeInWei;
@@ -255,5 +260,51 @@ contract FlatLiquidatorInfo is LiquidatorInfo {
         availableBiteInDaiWei = info.availableBiteInDaiWei;
         canCallBiteNow = info.canCallBiteNow;
         minimumTimeBeforeCallingBite = info.minimumTimeBeforeCallingBite;
+    }
+}
+
+contract ERC20Like {
+    function balanceOf(address guy) public view returns(uint);
+}
+
+contract VatBalanceLike {
+    function gem(bytes32 ilk, address user) external view returns(uint);
+    function dai(address user) external view returns(uint);
+}
+
+contract LiquidatorBalanceInfo {
+    struct BalanceInfo {
+        uint ethBalance;
+        uint wethBalance;
+        uint daiBalance;
+        uint vatDaiBalanceInWei;
+        uint vatEthBalanceInWei;
+        uint poolDaiBalanceInWei;
+    }
+
+    uint constant RAY = 1e27;
+
+    function getBalanceInfo(address me, address pool, address vat, bytes32 ilk, address dai, address weth)
+        public view returns(BalanceInfo memory info) {
+
+        info.ethBalance = me.balance;
+        info.wethBalance = ERC20Like(weth).balanceOf(me);
+        info.daiBalance = ERC20Like(dai).balanceOf(me);
+        info.vatDaiBalanceInWei = VatBalanceLike(vat).dai(me) / RAY;
+        info.vatEthBalanceInWei = VatBalanceLike(vat).gem(ilk, me);
+        info.poolDaiBalanceInWei = Pool(pool).rad(me) / RAY;
+    }
+
+    function getBalanceInfoFlat(address me, address pool, address vat, bytes32 ilk, address dai, address weth)
+        public view returns(uint ethBalance, uint wethBalance, uint daiBalance, uint vatDaiBalanceInWei,
+                            uint vatEthBalanceInWei, uint poolDaiBalanceInWei) {
+
+        BalanceInfo memory info = getBalanceInfo(me, pool, vat, ilk, dai, weth);
+        ethBalance = info.ethBalance;
+        wethBalance = info.wethBalance;
+        daiBalance = info.daiBalance;
+        vatDaiBalanceInWei = info.vatDaiBalanceInWei;
+        vatEthBalanceInWei = info.vatEthBalanceInWei;
+        poolDaiBalanceInWei = info.poolDaiBalanceInWei;
     }
 }
