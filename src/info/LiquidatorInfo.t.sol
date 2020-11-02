@@ -227,6 +227,19 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
         assertTrue(ethReturn > 0);
     }
 
+    function testVaultInfoForEmptyCdp() public {
+        uint cdp = openCdp(0, 0);
+        (bytes32 collateralType, uint collateralInWei, uint debtInDaiWei, uint liquidationPrice, uint ethReturn, bool betterThanChainlink) = info.getVaultInfoFlat(cdp, 100e18);
+
+        assertEq(collateralType, bytes32("ETH"));
+        assertEq(collateralInWei, 0);
+        assertEq(debtInDaiWei, 0);
+        assertEq(liquidationPrice, 0);
+        assertEq(ethReturn, 0);
+        assertTrue(! betterThanChainlink);
+
+    }
+
     function testBiteInfoNotInBite() public {
         uint cdp = openCdp(1 ether, 50 ether);
         address firstMember = getMembers()[0];
