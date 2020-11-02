@@ -104,6 +104,7 @@ contract LiquidatorInfo is Math {
 
         uint art;
         (info.collateralInWei, art) = vat.urns(info.collateralType, urn);
+        if(info.collateralInWei == 0) return info;
         (,uint rate,,,) = vat.ilks(info.collateralType);
         info.debtInDaiWei = mul(add(art, cushion), rate) / RAY;
         (, uint mat) = spot.ilks(info.collateralType);
