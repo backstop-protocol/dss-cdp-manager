@@ -790,7 +790,7 @@ contract PoolTest is BCdpManagerTestBase {
         uint cdp = testHappyTopup();
 
         // do dummy frob, which will call topup
-        manager.frob(cdp, -1, 0);
+        manager.frob(cdp, 0, 0);
 
         for(uint i = 0 ; i < 4 ; i++) {
             (,,,,,,, bool shouldUntop,,bool isToppedUp) = info.getCushionInfoFlat(cdp,address(members[i]), 4);
@@ -1002,7 +1002,7 @@ contract PoolTest is BCdpManagerTestBase {
         assertTrue(! LiquidationMachine(manager).bitten(cdp));
 
         // do dummy operation to untop
-        manager.frob(cdp, -1, 0);
+        manager.frob(cdp, 0, 0);
 
         members[3].doUntop(pool, cdp);
 
@@ -1224,7 +1224,7 @@ contract PoolTest is BCdpManagerTestBase {
         assertTrue(! LiquidationMachine(manager).bitten(cdp));
 
         // do dummy operation to untop
-        manager.frob(cdp, -1, 0);
+        manager.frob(cdp, 0, 0);
 
         members[3].doUntop(pool, cdp);
 

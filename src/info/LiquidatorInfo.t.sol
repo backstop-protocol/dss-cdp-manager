@@ -5,7 +5,7 @@ import { BCdpScore } from "./../BCdpScore.sol";
 import { Pool } from "./../pool/Pool.sol";
 import { Math } from "./../Math.sol";
 import { LiquidationMachine } from "./../LiquidationMachine.sol";
-import { FlatLiquidatorInfo } from "./LiquidatorInfo.sol";
+import { FlatLiquidatorInfo, LiquidatorBalanceInfo } from "./LiquidatorInfo.sol";
 
 
 contract FakeDaiToUsdPriceFeedLike {
@@ -36,6 +36,22 @@ contract FakeMember is FakeUser {
 
 contract FakeChainLink {
     function latestAnswer() external pure returns(int) { return 2549152947092904; }
+}
+
+contract FakePool {
+    mapping(address => uint) public rad;
+
+    function setRad(address usr, uint val) public {
+        rad[usr] = val;
+    }
+}
+
+contract FakeToken {
+    mapping(address => uint) public balanceOf;
+
+    function setBalance(address usr, uint val) public {
+        balanceOf[usr] = val;
+    }
 }
 
 contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
@@ -234,5 +250,38 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
 
         (,,,,,,,,uint timeToTopup,) = info.getCushionInfoFlat(cdp,getMembers()[0], 4);
         assertEq(timeToTopup, 6 * 60);
+    }
+
+    function testBalanceInfoFlat() public {
+        address payable me = address(0x123);
+        FakePool fPool = new FakePool();
+        FakeToken fDai = new FakeToken();
+        FakeToken fWeth = new FakeToken();
+        LiquidatorBalanceInfo balanceInfo = new LiquidatorBalanceInfo();
+
+        fPool.setRad(me, 123 * 1e27);
+        fDai.setBalance(me, 567);
+        fWeth.setBalance(me, 789);
+
+        uint cdp = openCdp(1 ether, 50 ether);
+        manager.move(cdp, me, 3e27);
+        assertEq(vat.dai(me), 3e27);
+        (bool succ,) = me.call.value(7)("");
+        assertTrue(succ);
+
+        weth.mint(8);
+        weth.approve(address(ethJoin), 8);
+        ethJoin.join(me, 8);
+
+        (uint ethBalance, uint wethBalance, uint daiBalance, uint vatDaiBalanceInWei,
+         uint vatEthBalanceInWei, uint poolDaiBalanceInWei) =
+          balanceInfo.getBalanceInfoFlat(me, address(fPool), address(vat), "ETH", address(fDai), address(fWeth));
+
+        assertEq(ethBalance, 7);
+        assertEq(wethBalance, 789);
+        assertEq(daiBalance, 567);
+        assertEq(vatDaiBalanceInWei, 3);
+        assertEq(vatEthBalanceInWei, 8);
+        assertEq(poolDaiBalanceInWei, 123);
     }
 }
