@@ -358,13 +358,13 @@ contract DeploymentTest is BCdpManagerTestBase {
 
         uint dart;
         (dart,,) = b.pool().topAmount(cdp1);
-        assertEq(dart,666);
+        assertTrue(dart > 0);
         (dart,,) = b.pool().topAmount(cdp2);
-        assertEq(dart,666);
+        assertTrue(dart > 0);
         (dart,,) = b.pool().topAmount(cdp3);
-        assertEq(dart,666);
+        assertTrue(dart > 0);
         (dart,,) = b.pool().topAmount(cdp4);
-        assertEq(dart,666);
+        assertTrue(dart > 0);
     }
 
     function openCdp(uint ink, uint art) internal returns(uint){
