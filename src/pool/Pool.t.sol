@@ -760,14 +760,14 @@ contract PoolTest is BCdpManagerTestBase {
             (uint cushionSizeInWei, uint numLiquidators,,
              uint numLiquidatorsIfAllHaveBalance,,,, bool shouldUntop,,bool isToppedUp) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
             assertTrue(shouldUntop);
-            assertTrue(isToppedUp);
+            assertTrue(! isToppedUp);
             assertEq(numLiquidators, 1);
             assertEq(numLiquidatorsIfAllHaveBalance, 1);
             assertEq(cushionSizeInWei, cdpCushion / RAY + 100 /* 1 wei less eth collateral */);
 
             (,,,,,,, shouldUntop,, isToppedUp) = info.getCushionInfoFlat(cdp,address(members[1]), 4);
             assertTrue(! shouldUntop);
-            assertTrue(isToppedUp);
+            assertTrue(! isToppedUp);
         }
 
         // do untop
@@ -795,7 +795,7 @@ contract PoolTest is BCdpManagerTestBase {
         for(uint i = 0 ; i < 4 ; i++) {
             (,,,,,,, bool shouldUntop,,bool isToppedUp) = info.getCushionInfoFlat(cdp,address(members[i]), 4);
             assertTrue(shouldUntop);
-            assertTrue(isToppedUp);
+            assertTrue(! isToppedUp);
         }
 
         // do untop
@@ -893,6 +893,10 @@ contract PoolTest is BCdpManagerTestBase {
     }
 
     function testFullBite() public {
+        bool canCallTopupNow;
+        bool shouldCallUntop;
+        bool isToppedUp;
+
         members[0].doDeposit(pool, 1000 ether * RAY);
         members[1].doDeposit(pool, 950 ether * RAY);
         members[2].doDeposit(pool, 900 ether * RAY);
@@ -915,6 +919,12 @@ contract PoolTest is BCdpManagerTestBase {
         // for 26 ether we expect 26/130 * 1.1 = 28.6/130, from which 98% goes to member
         uint expectedEth = uint(98) * 286 ether / (130 * 100 * 10);
         for(uint i = 0 ; i < 4 ; i++) {
+            (,,, ,,, canCallTopupNow, shouldCallUntop,, isToppedUp) = 
+                info.getCushionInfoFlat(cdp, address(members[i]), 4);
+            assertTrue(! canCallTopupNow);
+            assertTrue(isToppedUp);
+            assertTrue(! shouldCallUntop);
+        
             assertTrue(! canKeepersBite(cdp));
             uint dink = members[i].doPoolBite(pool, cdp, 26 ether, expectedEth);
             assertTrue(! canKeepersBite(cdp));
@@ -926,10 +936,43 @@ contract PoolTest is BCdpManagerTestBase {
             winners; //shh
             assertEq(bite[i], 26 ether);
             assertEq(pool.rad(address(members[i])), (1000 ether - 50 ether * i - 26 ether) * RAY - 1);
+
+            (,,, ,,, canCallTopupNow, shouldCallUntop,, isToppedUp) = 
+                info.getCushionInfoFlat(cdp, address(members[i]), 4);
+            if(i == 3) { // last one
+                assertTrue(! canCallTopupNow);                
+                assertTrue(! isToppedUp); // after bite of all 4 members, isToppedUp will be `false`
+                assertTrue(shouldCallUntop); // after bite of all 4 members, allow untop
+            } else {
+                assertTrue(! canCallTopupNow);
+                assertTrue(isToppedUp);
+                assertTrue(! shouldCallUntop);
+            }
         }
 
         // jar should get 2% from 104 * 1.1 / 130
         assertEq(vat.gem("ETH", address(jar)), (104 ether * 11 / 1300)/50);
+
+        // before untop
+        for(uint i = 0 ; i < 4 ; i++) {
+            (,,, ,,, canCallTopupNow, shouldCallUntop,, isToppedUp) = 
+                info.getCushionInfoFlat(cdp, address(members[i]), 4);
+            assertTrue(! canCallTopupNow);
+            assertTrue(! isToppedUp);
+            assertTrue(shouldCallUntop);
+        }
+
+        // untop
+        members[0].doUntop(pool, cdp);
+
+        // after untop
+        for(uint i = 0 ; i < 4 ; i++) {
+            (,,, ,,, canCallTopupNow, shouldCallUntop,, isToppedUp) = 
+                info.getCushionInfoFlat(cdp, address(members[i]), 4);
+            assertTrue(! canCallTopupNow);
+            assertTrue(! isToppedUp);
+            assertTrue(! shouldCallUntop);
+        }
     }
 
     function doBite(FakeMember m, Pool pool, uint cdp, uint dart, bool rate) internal {
@@ -1766,7 +1809,7 @@ contract PoolTest is BCdpManagerTestBase {
         
         assertTrue(! canCallTopupNow);
         assertTrue(shouldCallUntop);
-        assertTrue(isToppedUp);
+        assertTrue(! isToppedUp);
     }
 
     // tests to do
