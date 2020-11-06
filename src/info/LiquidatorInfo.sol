@@ -127,7 +127,7 @@ contract LiquidatorInfo is Math {
     function getCushionInfo(uint cdp, address me, uint numMembers) public view returns(CushionInfo memory info) {
         CdpDataVars memory c;
         (c.cdpArt, c.cushion, c.cdpWinners, c.bite) = pool.getCdpData(cdp);
-        info.isToppedUp = c.cushion > 0;
+        info.isToppedUp = c.cushion > 0 || manager.cushion(cdp) > 0;
         bool isUntoppedByUser = manager.cushion(cdp) == 0;
 
         (uint dart, uint dtab, uint art, bool should, address[] memory winners) = pool.topupInfo(cdp);
