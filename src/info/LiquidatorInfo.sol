@@ -127,8 +127,20 @@ contract LiquidatorInfo is Math {
     function getCushionInfo(uint cdp, address me, uint numMembers) public view returns(CushionInfo memory info) {
         CdpDataVars memory c;
         (c.cdpArt, c.cushion, c.cdpWinners, c.bite) = pool.getCdpData(cdp);
-        info.isToppedUp = c.cushion > 0 || manager.cushion(cdp) > 0;
+        info.isToppedUp = manager.cushion(cdp) > 0 || c.cushion > 0;
         bool isUntoppedByUser = manager.cushion(cdp) == 0;
+
+        if(info.isToppedUp && isUntoppedByUser) {
+            for(uint i = 0 ; i < c.cdpWinners.length ; i++) {
+                if(me == c.cdpWinners[i]) {
+                    uint perUserArt = c.cdpArt / c.cdpWinners.length;
+                    if(perUserArt > c.bite[i]) {
+                        info.shouldCallUntop = true;
+                        break;
+                    }
+                }
+            }
+        }
 
         (uint dart, uint dtab, uint art, bool should, address[] memory winners) = pool.topupInfo(cdp);
 
@@ -136,7 +148,6 @@ contract LiquidatorInfo is Math {
         info.cushionSizeInWei = dtab / RAY;
 
         if(dart == 0) {
-            info.shouldCallUntop = info.isToppedUp && isUntoppedByUser;
             if(info.isToppedUp) {
                 info.numLiquidatorsIfAllHaveBalance = winners.length;
                 info.cushionSizeInWei = c.cushion / RAY;
@@ -164,17 +175,6 @@ contract LiquidatorInfo is Math {
         }
 
         info.canCallTopupNow = !info.isToppedUp && should && info.shouldProvideCushion;
-        if(info.isToppedUp && isUntoppedByUser) {
-            for(uint i = 0 ; i < c.cdpWinners.length ; i++) {
-                if(me == c.cdpWinners[i]) {
-                    uint perUserArt = c.cdpArt / c.cdpWinners.length;
-                    if(perUserArt > c.bite[i]) {
-                        info.shouldCallUntop = true;
-                        break;
-                    }
-                }
-            }
-        }
 
         bytes32 ilk = manager.ilks(cdp);
         uint topupTime = add(uint(pool.osm(ilk).zzz()), uint(pool.osm(ilk).hop())/2);
