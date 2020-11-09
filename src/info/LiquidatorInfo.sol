@@ -54,6 +54,7 @@ contract LiquidatorInfo is Math {
 
     struct CdpInfo {
         uint cdp;
+        uint blockNumber;
         VaultInfo vault;
         CushionInfo cushion;
         BiteInfo bite;
@@ -127,8 +128,15 @@ contract LiquidatorInfo is Math {
     function getCushionInfo(uint cdp, address me, uint numMembers) public view returns(CushionInfo memory info) {
         CdpDataVars memory c;
         (c.cdpArt, c.cushion, c.cdpWinners, c.bite) = pool.getCdpData(cdp);
-        info.isToppedUp = c.cushion > 0;
-        bool isUntoppedByUser = manager.cushion(cdp) == 0;
+        
+        for(uint i = 0 ; i < c.cdpWinners.length ; i++) {
+            if(me == c.cdpWinners[i]) {
+                uint perUserArt = c.cdpArt / c.cdpWinners.length;
+                info.shouldCallUntop = manager.cushion(cdp) == 0 && c.cushion > 0 && c.bite[i] < perUserArt;
+                info.isToppedUp = c.bite[i] < perUserArt;
+                break;
+            }
+        }
 
         (uint dart, uint dtab, uint art, bool should, address[] memory winners) = pool.topupInfo(cdp);
 
@@ -136,7 +144,6 @@ contract LiquidatorInfo is Math {
         info.cushionSizeInWei = dtab / RAY;
 
         if(dart == 0) {
-            info.shouldCallUntop = info.isToppedUp && isUntoppedByUser;
             if(info.isToppedUp) {
                 info.numLiquidatorsIfAllHaveBalance = winners.length;
                 info.cushionSizeInWei = c.cushion / RAY;
@@ -164,17 +171,6 @@ contract LiquidatorInfo is Math {
         }
 
         info.canCallTopupNow = !info.isToppedUp && should && info.shouldProvideCushion;
-        if(info.isToppedUp && isUntoppedByUser) {
-            for(uint i = 0 ; i < c.cdpWinners.length ; i++) {
-                if(me == c.cdpWinners[i]) {
-                    uint perUserArt = c.cdpArt / c.cdpWinners.length;
-                    if(perUserArt > c.bite[i]) {
-                        info.shouldCallUntop = true;
-                        break;
-                    }
-                }
-            }
-        }
 
         bytes32 ilk = manager.ilks(cdp);
         uint topupTime = add(uint(pool.osm(ilk).zzz()), uint(pool.osm(ilk).hop())/2);
@@ -213,6 +209,7 @@ contract LiquidatorInfo is Math {
         for(uint cdp = startCdp ; cdp <= endCdp ; cdp++) {
             uint index = cdp - startCdp;
             info[index].cdp = cdp;
+            info[index].blockNumber = block.number;
             info[index].vault = getVaultInfo(cdp, currentPriceFeedValue);
             info[index].cushion = getCushionInfo(cdp, me, numMembers);
             info[index].bite = getBiteInfo(cdp, me);
@@ -275,6 +272,7 @@ contract VatBalanceLike {
 
 contract LiquidatorBalanceInfo {
     struct BalanceInfo {
+        uint blockNumber;
         uint ethBalance;
         uint wethBalance;
         uint daiBalance;
@@ -288,6 +286,7 @@ contract LiquidatorBalanceInfo {
     function getBalanceInfo(address me, address pool, address vat, bytes32 ilk, address dai, address weth)
         public view returns(BalanceInfo memory info) {
 
+        info.blockNumber = block.number;
         info.ethBalance = me.balance;
         info.wethBalance = ERC20Like(weth).balanceOf(me);
         info.daiBalance = ERC20Like(dai).balanceOf(me);
@@ -297,10 +296,11 @@ contract LiquidatorBalanceInfo {
     }
 
     function getBalanceInfoFlat(address me, address pool, address vat, bytes32 ilk, address dai, address weth)
-        public view returns(uint ethBalance, uint wethBalance, uint daiBalance, uint vatDaiBalanceInWei,
+        public view returns(uint blockNumber, uint ethBalance, uint wethBalance, uint daiBalance, uint vatDaiBalanceInWei,
                             uint vatEthBalanceInWei, uint poolDaiBalanceInWei) {
 
         BalanceInfo memory info = getBalanceInfo(me, pool, vat, ilk, dai, weth);
+        blockNumber = info.blockNumber;
         ethBalance = info.ethBalance;
         wethBalance = info.wethBalance;
         daiBalance = info.daiBalance;
