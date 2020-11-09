@@ -293,7 +293,7 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
             uint vatEthBalanceInWei, uint poolDaiBalanceInWei) =
             balanceInfo.getBalanceInfoFlat(me, address(fPool), address(vat), "ETH", address(fDai), address(fWeth));
 
-            assertTrue(blockNumber > 0);
+            assertEq(blockNumber, block.number);
             assertEq(ethBalance, 7);
             assertEq(wethBalance, 789);
             assertEq(daiBalance, 567);
