@@ -286,7 +286,7 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
         weth.approve(address(ethJoin), 8);
         ethJoin.join(me, 8);
 
-        (uint ethBalance, uint wethBalance, uint daiBalance, uint vatDaiBalanceInWei,
+        (, uint ethBalance, uint wethBalance, uint daiBalance, uint vatDaiBalanceInWei,
          uint vatEthBalanceInWei, uint poolDaiBalanceInWei) =
           balanceInfo.getBalanceInfoFlat(me, address(fPool), address(vat), "ETH", address(fDai), address(fWeth));
 
