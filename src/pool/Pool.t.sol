@@ -748,6 +748,8 @@ contract PoolTest is BCdpManagerTestBase {
             assertEq(dartAfterTopup, 0);
             (uint cushionSizeInWei, uint numLiquidators,,
             uint numLiquidatorsIfAllHaveBalance,,,, bool shouldUntop,,bool isToppedUp) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
+            assertTrue(! shouldUntop);
+            assertTrue(isToppedUp);
             assertEq(numLiquidators, 1);
             assertEq(numLiquidatorsIfAllHaveBalance, 1);
             assertEq(cushionSizeInWei, cdpCushion / RAY);
@@ -1228,8 +1230,6 @@ contract PoolTest is BCdpManagerTestBase {
         osm.setH(60 * 60);
         osm.setZ(currTime - 31 minutes);
 
-        (, uint prevRate,,,) = vat.ilks("ETH");
-
         (,,,uint timeTillBite) = info.getBiteInfoFlat(cdp, address(members[3]));
         assertEq(timeTillBite, 29 * 60);
 
@@ -1303,7 +1303,7 @@ contract PoolTest is BCdpManagerTestBase {
         osm.setPrice(150 * 1e18); // 1 ETH = 150 DAI
         osm.setH(60 * 60);
         osm.setZ(currTime - 31 minutes);
-        (, uint prevRate,,,) = vat.ilks("ETH");
+        
         members[0].doTopup(pool, cdp);
 
         forwardTime(31 minutes);
@@ -1585,7 +1585,7 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(dai2usdPriceFeed.getMarketPrice(3), 1 ether);
     }
 
-    function testFailDaiToUsdMarketPriceInvalidMarketId() public {
+    function testFailDaiToUsdMarketPriceInvalidMarketId() public view {
         address priceFeedAddr = address(pool.dai2usd());
         FakeDaiToUsdPriceFeed dai2usdPriceFeed = FakeDaiToUsdPriceFeed(priceFeedAddr);
         // must revert
