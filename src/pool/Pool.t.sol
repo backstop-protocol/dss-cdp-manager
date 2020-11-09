@@ -760,14 +760,14 @@ contract PoolTest is BCdpManagerTestBase {
             (uint cushionSizeInWei, uint numLiquidators,,
              uint numLiquidatorsIfAllHaveBalance,,,, bool shouldUntop,,bool isToppedUp) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
             assertTrue(shouldUntop);
-            assertTrue(! isToppedUp);
+            assertTrue(isToppedUp);
             assertEq(numLiquidators, 1);
             assertEq(numLiquidatorsIfAllHaveBalance, 1);
             assertEq(cushionSizeInWei, cdpCushion / RAY + 100 /* 1 wei less eth collateral */);
 
             (,,,,,,, shouldUntop,, isToppedUp) = info.getCushionInfoFlat(cdp,address(members[1]), 4);
-            assertTrue(! shouldUntop);
-            assertTrue(! isToppedUp);
+            assertTrue(! shouldUntop); // as member[1] is not winner
+            assertTrue(isToppedUp);
         }
 
         // do untop
@@ -795,7 +795,7 @@ contract PoolTest is BCdpManagerTestBase {
         for(uint i = 0 ; i < 4 ; i++) {
             (,,,,,,, bool shouldUntop,,bool isToppedUp) = info.getCushionInfoFlat(cdp,address(members[i]), 4);
             assertTrue(shouldUntop);
-            assertTrue(! isToppedUp);
+            assertTrue(isToppedUp);
         }
 
         // do untop
@@ -941,7 +941,7 @@ contract PoolTest is BCdpManagerTestBase {
                 info.getCushionInfoFlat(cdp, address(members[i]), 4);
             if(i == 3) { // last one
                 assertTrue(! canCallTopupNow);                
-                assertTrue(! isToppedUp); // after bite of all 4 members, isToppedUp will be `false`
+                assertTrue(isToppedUp);
                 assertTrue(shouldCallUntop); // after bite of all 4 members, allow untop
             } else {
                 assertTrue(! canCallTopupNow);
@@ -958,7 +958,7 @@ contract PoolTest is BCdpManagerTestBase {
             (,,, ,,, canCallTopupNow, shouldCallUntop,, isToppedUp) = 
                 info.getCushionInfoFlat(cdp, address(members[i]), 4);
             assertTrue(! canCallTopupNow);
-            assertTrue(! isToppedUp);
+            assertTrue(isToppedUp);
             assertTrue(shouldCallUntop);
         }
 
@@ -1799,7 +1799,7 @@ contract PoolTest is BCdpManagerTestBase {
             = info.getCushionInfoFlat(cdp,address(members[0]), 4);
         assertTrue(! canCallTopupNow);
         assertTrue(! shouldCallUntop);
-        assertTrue(isToppedUp);    
+        assertTrue(isToppedUp);
 
         // repay 50 DAI debt
         manager.frob(cdp, 0, -50 ether);
@@ -1809,7 +1809,7 @@ contract PoolTest is BCdpManagerTestBase {
         
         assertTrue(! canCallTopupNow);
         assertTrue(shouldCallUntop);
-        assertTrue(! isToppedUp);
+        assertTrue(isToppedUp);
     }
 
     // tests to do

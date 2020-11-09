@@ -127,19 +127,16 @@ contract LiquidatorInfo is Math {
     function getCushionInfo(uint cdp, address me, uint numMembers) public view returns(CushionInfo memory info) {
         CdpDataVars memory c;
         (c.cdpArt, c.cushion, c.cdpWinners, c.bite) = pool.getCdpData(cdp);
-        info.isToppedUp = manager.cushion(cdp) > 0;
-        bool isUntoppedByUser = manager.cushion(cdp) == 0;
+        bool toppedUpInManager = manager.cushion(cdp) > 0;
+        bool toppedUpInPool = c.cushion > 0;
+        info.isToppedUp = toppedUpInManager || toppedUpInPool;
+        bool mustCallUntop = toppedUpInPool && !toppedUpInManager;
 
-        bool mustCallUntop = c.cushion > 0 && isUntoppedByUser;
-
-        if(info.isToppedUp && isUntoppedByUser || mustCallUntop) {
+        if(mustCallUntop) {
             for(uint i = 0 ; i < c.cdpWinners.length ; i++) {
                 if(me == c.cdpWinners[i]) {
-                    uint perUserArt = c.cdpArt / c.cdpWinners.length;
-                    if(perUserArt > c.bite[i] || mustCallUntop) {
-                        info.shouldCallUntop = true;
-                        break;
-                    }
+                    info.shouldCallUntop = true;
+                    break;
                 }
             }
         }
