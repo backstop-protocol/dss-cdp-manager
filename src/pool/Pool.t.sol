@@ -769,7 +769,7 @@ contract PoolTest is BCdpManagerTestBase {
 
             (,,,,,,, shouldUntop,, isToppedUp) = info.getCushionInfoFlat(cdp,address(members[1]), 4);
             assertTrue(! shouldUntop); // as member[1] is not winner
-            assertTrue(isToppedUp);
+            assertTrue(! isToppedUp);
         }
 
         // do untop
@@ -939,18 +939,21 @@ contract PoolTest is BCdpManagerTestBase {
             assertEq(bite[i], 26 ether);
             assertEq(pool.rad(address(members[i])), (1000 ether - 50 ether * i - 26 ether) * RAY - 1);
 
-            (,,, ,,, canCallTopupNow, shouldCallUntop,, isToppedUp) = 
-                info.getCushionInfoFlat(cdp, address(members[i]), 4);
-            if(i == 3) {
-                // full bitten case
-                assertTrue(! canCallTopupNow);                
-                assertTrue(! isToppedUp); // after bite by all 4 members, technically not topped up anymore
-                assertTrue(! shouldCallUntop); // after bite by all 4 members, technically untop not needed
-            } else {
-                // partial bitten case
-                assertTrue(! canCallTopupNow);
-                assertTrue(isToppedUp);
-                assertTrue(! shouldCallUntop);
+            for(uint j = i ; j < 4 ; j++) {
+                (,,, ,,, canCallTopupNow, shouldCallUntop,, isToppedUp) = 
+                    info.getCushionInfoFlat(cdp, address(members[j]), 4);
+            
+                if(j == i) {
+                    // full bitten case by first j member
+                    assertTrue(! canCallTopupNow);         
+                    assertTrue(! isToppedUp);
+                    assertTrue(! shouldCallUntop);
+                } else {
+                    // not bitten by rest members
+                    assertTrue(! canCallTopupNow);
+                    assertTrue(isToppedUp);
+                    assertTrue(! shouldCallUntop);
+                }
             }
         }
 

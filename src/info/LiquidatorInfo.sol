@@ -128,26 +128,16 @@ contract LiquidatorInfo is Math {
     function getCushionInfo(uint cdp, address me, uint numMembers) public view returns(CushionInfo memory info) {
         CdpDataVars memory c;
         (c.cdpArt, c.cushion, c.cdpWinners, c.bite) = pool.getCdpData(cdp);
-        bool toppedUpInManager = manager.cushion(cdp) > 0;
-        bool toppedUpInPool = c.cushion > 0;
-        info.isToppedUp = toppedUpInManager || toppedUpInPool;
-
-        uint biteTotal;
-        if(toppedUpInPool && !toppedUpInManager) {
-            for(uint i = 0 ; i < c.cdpWinners.length ; i++) {
-                biteTotal += c.bite[i];
-                if(me == c.cdpWinners[i]) {
-                    uint perUserArt = c.cdpArt / c.cdpWinners.length;
-                    if(perUserArt > c.bite[i]) {
-                        info.shouldCallUntop = true;
-                    }
-                }
+        
+        for(uint i = 0 ; i < c.cdpWinners.length ; i++) {
+            if(me == c.cdpWinners[i]) {
+                uint perUserArt = c.cdpArt / c.cdpWinners.length;
+                info.shouldCallUntop = manager.cushion(cdp) == 0 && c.cushion > 0 && c.bite[i] < perUserArt;
+                info.isToppedUp = c.bite[i] < perUserArt;
+                break;
             }
         }
-
-        // when fully bitten, its no more topped up
-        if(biteTotal >= c.cdpArt) info.isToppedUp = false;
-
+        
         (uint dart, uint dtab, uint art, bool should, address[] memory winners) = pool.topupInfo(cdp);
 
         info.numLiquidators = winners.length;
