@@ -54,7 +54,7 @@ contract LiquidatorInfo is Math {
 
     struct CdpInfo {
         uint cdp;
-        uint blockNum;
+        uint blockNumber;
         VaultInfo vault;
         CushionInfo cushion;
         BiteInfo bite;
@@ -137,7 +137,7 @@ contract LiquidatorInfo is Math {
                 break;
             }
         }
-        
+
         (uint dart, uint dtab, uint art, bool should, address[] memory winners) = pool.topupInfo(cdp);
 
         info.numLiquidators = winners.length;
@@ -209,7 +209,7 @@ contract LiquidatorInfo is Math {
         for(uint cdp = startCdp ; cdp <= endCdp ; cdp++) {
             uint index = cdp - startCdp;
             info[index].cdp = cdp;
-            info[index].blockNum = block.number;
+            info[index].blockNumber = block.number;
             info[index].vault = getVaultInfo(cdp, currentPriceFeedValue);
             info[index].cushion = getCushionInfo(cdp, me, numMembers);
             info[index].bite = getBiteInfo(cdp, me);
@@ -272,7 +272,7 @@ contract VatBalanceLike {
 
 contract LiquidatorBalanceInfo {
     struct BalanceInfo {
-        uint blockNum;
+        uint blockNumber;
         uint ethBalance;
         uint wethBalance;
         uint daiBalance;
@@ -286,7 +286,7 @@ contract LiquidatorBalanceInfo {
     function getBalanceInfo(address me, address pool, address vat, bytes32 ilk, address dai, address weth)
         public view returns(BalanceInfo memory info) {
 
-        info.blockNum = block.number;
+        info.blockNumber = block.number;
         info.ethBalance = me.balance;
         info.wethBalance = ERC20Like(weth).balanceOf(me);
         info.daiBalance = ERC20Like(dai).balanceOf(me);
@@ -296,11 +296,11 @@ contract LiquidatorBalanceInfo {
     }
 
     function getBalanceInfoFlat(address me, address pool, address vat, bytes32 ilk, address dai, address weth)
-        public view returns(uint blockNum, uint ethBalance, uint wethBalance, uint daiBalance, uint vatDaiBalanceInWei,
+        public view returns(uint blockNumber, uint ethBalance, uint wethBalance, uint daiBalance, uint vatDaiBalanceInWei,
                             uint vatEthBalanceInWei, uint poolDaiBalanceInWei) {
 
         BalanceInfo memory info = getBalanceInfo(me, pool, vat, ilk, dai, weth);
-        blockNum = info.blockNum;
+        blockNumber = info.blockNumber;
         ethBalance = info.ethBalance;
         wethBalance = info.wethBalance;
         daiBalance = info.daiBalance;
