@@ -131,16 +131,22 @@ contract LiquidatorInfo is Math {
         bool toppedUpInManager = manager.cushion(cdp) > 0;
         bool toppedUpInPool = c.cushion > 0;
         info.isToppedUp = toppedUpInManager || toppedUpInPool;
-        bool mustCallUntop = toppedUpInPool && !toppedUpInManager;
 
-        if(mustCallUntop) {
+        uint biteTotal;
+        if(toppedUpInPool && !toppedUpInManager) {
             for(uint i = 0 ; i < c.cdpWinners.length ; i++) {
+                biteTotal += c.bite[i];
                 if(me == c.cdpWinners[i]) {
-                    info.shouldCallUntop = true;
-                    break;
+                    uint perUserArt = c.cdpArt / c.cdpWinners.length;
+                    if(perUserArt > c.bite[i]) {
+                        info.shouldCallUntop = true;
+                    }
                 }
             }
         }
+
+        // when fully bitten, its no more topped up
+        if(biteTotal >= c.cdpArt) info.isToppedUp = false;
 
         (uint dart, uint dtab, uint art, bool should, address[] memory winners) = pool.topupInfo(cdp);
 

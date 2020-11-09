@@ -941,11 +941,13 @@ contract PoolTest is BCdpManagerTestBase {
 
             (,,, ,,, canCallTopupNow, shouldCallUntop,, isToppedUp) = 
                 info.getCushionInfoFlat(cdp, address(members[i]), 4);
-            if(i == 3) { // last one
+            if(i == 3) {
+                // full bitten case
                 assertTrue(! canCallTopupNow);                
-                assertTrue(isToppedUp);
-                assertTrue(shouldCallUntop); // after bite of all 4 members, allow untop
+                assertTrue(! isToppedUp); // after bite by all 4 members, technically not topped up anymore
+                assertTrue(! shouldCallUntop); // after bite by all 4 members, technically untop not needed
             } else {
+                // partial bitten case
                 assertTrue(! canCallTopupNow);
                 assertTrue(isToppedUp);
                 assertTrue(! shouldCallUntop);
@@ -960,8 +962,8 @@ contract PoolTest is BCdpManagerTestBase {
             (,,, ,,, canCallTopupNow, shouldCallUntop,, isToppedUp) = 
                 info.getCushionInfoFlat(cdp, address(members[i]), 4);
             assertTrue(! canCallTopupNow);
-            assertTrue(isToppedUp);
-            assertTrue(shouldCallUntop);
+            assertTrue(! isToppedUp);
+            assertTrue(! shouldCallUntop); // as full bitten
         }
 
         // untop
