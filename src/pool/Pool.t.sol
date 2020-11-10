@@ -153,6 +153,33 @@ contract PoolTest is BCdpManagerTestBase {
         return num + 1 ether;
     }
 
+    function expectCushionInfo(
+        uint cdp,
+        address member,
+        uint numMembers,
+        bool expCanCallTopupNow,
+        bool expShouldCallUntop,
+        bool expIsToppedUp
+    ) internal {
+        (,,, ,,, bool canCallTopupNow, bool shouldCallUntop,, bool isToppedUp) 
+            = info.getCushionInfoFlat(cdp, member, numMembers);
+        assertTrue(canCallTopupNow == expCanCallTopupNow);
+        assertTrue(shouldCallUntop == expShouldCallUntop);
+        assertTrue(isToppedUp == expIsToppedUp);
+    }
+
+    function expectCushionInfoAllMembers(
+        uint cdp,
+        FakeMember[] memory members,
+        bool canCallTopupNow,
+        bool shouldCallUntop,
+        bool isToppedUp
+    ) internal {
+        for(uint i = 0; i < members.length; i++) {
+            expectCushionInfo(cdp, address(members[i]), members.length, canCallTopupNow, shouldCallUntop, isToppedUp);
+        }
+    }
+
     function testDeposit() public {
         uint userBalance = vat.dai(address(member));
         assertEq(pool.rad(address(member)), 0);
@@ -1038,12 +1065,36 @@ contract PoolTest is BCdpManagerTestBase {
         this.file(address(cat), "ETH", "chop", WAD + WAD/10);
         pool.setProfitParams(935, 1000); // 6.5% goes to jar
 
+        /* expectCushionInfoAllMembers(cdp, members, canCallTopupNow, shoulCallUntop, isToppedUp) */
+        expectCushionInfoAllMembers(cdp, members, false, false, true);
+        
         doBite(members[1], pool, cdp, 15 ether, false);
+        // no change in cushionInfo, as member[1] bite partially 
+        expectCushionInfoAllMembers(cdp, members, false, false, true);
+
         doBite(members[0], pool, cdp, 13 ether, false);
+        // no change in cushionInfo, as member[0] bite partially 
+        expectCushionInfoAllMembers(cdp, members, false, false, true);
+        
         doBite(members[2], pool, cdp, 17 ether, false);
+        // no change in cushionInfo, as member[2] bite partially 
+        expectCushionInfoAllMembers(cdp, members, false, false, true);
+
         doBite(members[1], pool, cdp, 9 ether, false);
+        // no change in cushionInfo, as member[1] bite partially 
+        expectCushionInfoAllMembers(cdp, members, false, false, true);
+
         doBite(members[0], pool, cdp, 10 ether, false);
+        // no change in cushionInfo, as member[0] bite partially 
+        expectCushionInfoAllMembers(cdp, members, false, false, true);
+
         doBite(members[0], pool, cdp, 3 ether, false);
+        // change in cushionInfo, as members[0] bite full
+        expectCushionInfo(cdp, address(members[0]), 4, false, false, false);
+        // but no change in members - 1,2,3
+        expectCushionInfo(cdp, address(members[1]), 4, false, false, true);
+        expectCushionInfo(cdp, address(members[2]), 4, false, false, true);
+        expectCushionInfo(cdp, address(members[3]), 4, false, false, true);
 
         assertTrue(LiquidationMachine(manager).bitten(cdp));
 
@@ -1054,7 +1105,17 @@ contract PoolTest is BCdpManagerTestBase {
         // do dummy operation to untop
         manager.frob(cdp, 0, 0);
 
+        // member[0] bitten full
+        expectCushionInfo(cdp, address(members[0]), 4, false, false, false);
+        // rest members bitten partially
+        expectCushionInfo(cdp, address(members[1]), 4, false, true, true);
+        expectCushionInfo(cdp, address(members[2]), 4, false, true, true);
+        expectCushionInfo(cdp, address(members[3]), 4, false, true, true);
+
         members[3].doUntop(pool, cdp);
+
+        // after untop
+        expectCushionInfoAllMembers(cdp, members, false, false, false);
 
         // check balances
         // 0 consumed 26 ether
