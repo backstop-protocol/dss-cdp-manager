@@ -260,9 +260,53 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
         uint cdp = openCdp(1 ether, 50 ether);
         osm.setH(60 * 60);
         osm.setZ(currTime - 24 * 60); // now it is 00:24
+        osm.setPrice(60 * 1e18);
 
         (,,,,,,,,uint timeToTopup,) = info.getCushionInfoFlat(cdp,getMembers()[0], 4);
         assertEq(timeToTopup, 6 * 60);
+    }
+
+    function testTopupBiggerThanArt() public {
+        uint cdp = openCdp(1 ether, 50 ether);
+        osm.setH(60 * 60);
+        osm.setZ(currTime - 24 * 60); // now it is 00:24
+        osm.setPrice(0 * 1e18);
+
+        (,,,,bool shouldProvideCushion,bool shouldProvideCushionIfAllHaveBalance,bool canCallTopupNow,bool shouldCallUntop,uint timeToTopup,) = info.getCushionInfoFlat(cdp,getMembers()[0], 4);
+
+        assertTrue(! shouldProvideCushion);
+        assertTrue(! shouldProvideCushionIfAllHaveBalance);
+        assertTrue(! canCallTopupNow);
+        assertTrue(! shouldCallUntop);
+
+        assertEq(timeToTopup, 6 * 60);
+    }
+
+    function testTopupLeadsToDust() public {
+        uint cdp = openCdp(1 ether, 50 ether);
+        osm.setH(60 * 60);
+        osm.setZ(currTime - 34 * 60); // now it is 00:34
+        osm.setPrice(60 * 1e18);
+
+        members[1].doDeposit(Pool(address(info.pool())), 100e45);
+
+        (,,,,bool shouldProvideCushion,bool shouldProvideCushionIfAllHaveBalance,bool canCallTopupNow,bool shouldCallUntop,uint timeToTopup,) = info.getCushionInfoFlat(cdp,getMembers()[1], 4);
+
+        assertTrue(shouldProvideCushion);
+        assertTrue(shouldProvideCushionIfAllHaveBalance);
+        assertTrue(canCallTopupNow);
+        assertTrue(!shouldCallUntop);
+        assertEq(timeToTopup, 0 * 60);
+
+        // change dust value
+        this.file(address(vat), "ETH", "dust", 200e45);
+        (,,,,shouldProvideCushion,shouldProvideCushionIfAllHaveBalance,canCallTopupNow,shouldCallUntop,timeToTopup,) = info.getCushionInfoFlat(cdp,getMembers()[1], 4);
+
+        assertTrue(! shouldProvideCushion);
+        assertTrue(! shouldProvideCushionIfAllHaveBalance);
+        assertTrue(! canCallTopupNow);
+        assertTrue(! shouldCallUntop);
+        assertEq(timeToTopup, 0 * 60);
     }
 
     function testBalanceInfoFlat() public {
