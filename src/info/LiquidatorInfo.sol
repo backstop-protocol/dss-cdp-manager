@@ -68,11 +68,11 @@ contract LiquidatorInfo is Math {
          uint[] bite;
     }
 
-    LiquidationMachine manager;
+    LiquidationMachine public manager;
     VatLike public vat;
-    Pool pool;
-    SpotLike spot;
-    ChainlinkLike chainlink;
+    Pool public pool;
+    SpotLike public spot;
+    ChainlinkLike public chainlink;
 
     uint constant RAY = 1e27;
 
@@ -175,6 +175,13 @@ contract LiquidatorInfo is Math {
         bytes32 ilk = manager.ilks(cdp);
         uint topupTime = add(uint(pool.osm(ilk).zzz()), uint(pool.osm(ilk).hop())/2);
         info.minimumTimeBeforeCallingTopup = (now >= topupTime) ? 0 : sub(topupTime, now);
+
+        (,uint rate,,,uint dust) = vat.ilks(ilk);
+        if((dart > art) || (mul(rate, sub(art, dart)) < dust)) {
+            info.shouldProvideCushion = false;
+            info.shouldProvideCushionIfAllHaveBalance = false;
+            info.canCallTopupNow = false;
+        }
     }
 
     function getBiteInfo(uint cdp, address me) public view returns(BiteInfo memory info) {
@@ -208,6 +215,19 @@ contract LiquidatorInfo is Math {
         info = new CdpInfo[](add(sub(endCdp, startCdp), uint(1)));
         for(uint cdp = startCdp ; cdp <= endCdp ; cdp++) {
             uint index = cdp - startCdp;
+            info[index].cdp = cdp;
+            info[index].blockNumber = block.number;
+            info[index].vault = getVaultInfo(cdp, currentPriceFeedValue);
+            info[index].cushion = getCushionInfo(cdp, me, numMembers);
+            info[index].bite = getBiteInfo(cdp, me);
+        }
+    }
+
+    function getCdpData(uint[] calldata cdps, address me, uint currentPriceFeedValue) external returns(CdpInfo[] memory info) {
+        uint numMembers = getNumMembers();
+        info = new CdpInfo[](cdps.length);
+        for(uint index = 0 ; index < cdps.length ; index++) {
+            uint cdp = cdps[index];
             info[index].cdp = cdp;
             info[index].blockNumber = block.number;
             info[index].vault = getVaultInfo(cdp, currentPriceFeedValue);
