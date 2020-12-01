@@ -128,7 +128,7 @@ contract LiquidatorInfo is Math {
     function getCushionInfo(uint cdp, address me, uint numMembers) public view returns(CushionInfo memory info) {
         CdpDataVars memory c;
         (c.cdpArt, c.cushion, c.cdpWinners, c.bite) = pool.getCdpData(cdp);
-        
+
         for(uint i = 0 ; i < c.cdpWinners.length ; i++) {
             if(me == c.cdpWinners[i]) {
                 uint perUserArt = c.cdpArt / c.cdpWinners.length;
@@ -290,7 +290,7 @@ contract VatBalanceLike {
     function dai(address user) external view returns(uint);
 }
 
-contract LiquidatorBalanceInfo {
+contract LiquidatorBalanceInfo is Math {
     struct BalanceInfo {
         uint blockNumber;
         uint ethBalance;
@@ -302,6 +302,32 @@ contract LiquidatorBalanceInfo {
     }
 
     uint constant RAY = 1e27;
+
+    function getTotalCushion(address me, address pool, uint startCdp, uint endCdp)
+        public view returns(uint cushionInArt) {
+
+        uint cushionInArt = 0;
+        for(uint cdp = startCdp ; cdp <= endCdp ; cdp++) {
+            (uint topupArt,,address[] memory members, uint[] memory bite) = Pool(pool).getCdpData(cdp);
+            for(uint m = 0 ; topupArt > 0 && m < members.length ; m++) {
+                if(members[m] == me) {
+                    cushionInArt = add(cushionInArt, sub(topupArt / members.length, bite[m]));
+                    break;
+                }
+            }
+        }
+
+        return cushionInArt;
+    }
+
+    function getTotalCushion(address me, address pool)
+        public view returns(uint cushionInArt) {
+
+        uint startCdp = 1;
+        uint endCdp = Pool(pool).man().cdpi();
+
+        return getTotalCushion(me, pool, startCdp, endCdp);
+    }
 
     function getBalanceInfo(address me, address pool, address vat, bytes32 ilk, address dai, address weth)
         public view returns(BalanceInfo memory info) {
