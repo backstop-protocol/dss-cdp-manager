@@ -302,7 +302,6 @@ contract LiquidatorBalanceInfo is Math {
     function getTotalCushion(address me, address pool, uint startCdp, uint endCdp)
         public view returns(uint cushionInArt) {
 
-        uint cushionInArt = 0;
         for(uint cdp = startCdp ; cdp <= endCdp ; cdp++) {
             (uint topupArt, uint cushion, address[] memory members, uint[] memory bite) = Pool(pool).getCdpData(cdp);
             for(uint m = 0 ; topupArt > 0 && m < members.length ; m++) {
@@ -316,7 +315,7 @@ contract LiquidatorBalanceInfo is Math {
             }
         }
 
-        return cushionInArt / RAY;
+        cushionInArt = cushionInArt / RAY;
     }
 
     function getTotalCushion(address me, address pool)
@@ -325,7 +324,7 @@ contract LiquidatorBalanceInfo is Math {
         uint startCdp = 1;
         uint endCdp = Pool(pool).man().cdpi();
 
-        return getTotalCushion(me, pool, startCdp, endCdp);
+        cushionInArt = getTotalCushion(me, pool, startCdp, endCdp);
     }
 
     function getBalanceInfo(address me, address pool, address vat, bytes32 ilk, address dai, address weth)
