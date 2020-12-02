@@ -4,7 +4,7 @@ import { BCdpManagerTestBase, Hevm, FakeUser, FakeDaiToUsdPriceFeed } from "./..
 import { BCdpScore } from "./../BCdpScore.sol";
 import { Pool } from "./Pool.sol";
 import { LiquidationMachine } from "./../LiquidationMachine.sol";
-import { FlatLiquidatorInfo } from "./../info/LiquidatorInfo.sol";
+import { FlatLiquidatorInfo, LiquidatorBalanceInfo } from "./../info/LiquidatorInfo.sol";
 
 contract FakeMember is FakeUser {
     function doDeposit(Pool pool, uint rad) public {
@@ -39,6 +39,7 @@ contract PoolTest is BCdpManagerTestBase {
     FakeMember nonMember;
     address constant JAR = address(0x1234567890);
     FlatLiquidatorInfo info;
+    LiquidatorBalanceInfo balInfo;
 
     function setUp() public {
         super.setUp();
@@ -66,6 +67,7 @@ contract PoolTest is BCdpManagerTestBase {
         member = members[0];
 
         info = new FlatLiquidatorInfo(LiquidationMachine(manager), address(new FakeChainLink()));
+        balInfo = new LiquidatorBalanceInfo();
     }
 
     function getMembers() internal view returns(address[] memory) {
@@ -179,6 +181,48 @@ contract PoolTest is BCdpManagerTestBase {
             expectCushionInfo(cdp, address(members[i]), members.length, canCallTopupNow, shouldCallUntop, isToppedUp);
         }
     }
+
+    function expectTotalCushionForMembers(
+        FakeMember[] memory members,
+        uint expectedCushion
+    ) internal {
+        for(uint i = 0; i < members.length; i++) {
+            uint totalCushion = balInfo.getTotalCushion(address(members[i]), address(pool));
+            assertEq(totalCushion, expectedCushion);
+        }
+    }
+
+    function expectTotalCushionForMember(
+        FakeMember member,
+        uint expectedCushion
+    ) internal {
+        uint totalCushion = balInfo.getTotalCushion(address(member), address(pool));
+        assertEq(totalCushion, expectedCushion);
+        
+    }
+
+    function expectTotalCushionForMemberInCdps(
+        FakeMember member,
+        uint expectedCushion,
+        uint startCdp,
+        uint endCdp
+    ) internal {
+        uint totalCushion = balInfo.getTotalCushion(address(member), address(pool), startCdp, endCdp);
+        assertEq(totalCushion, expectedCushion);   
+    }
+
+    function expectTotalCushionForMembersInCdps(
+        FakeMember[] memory members,
+        uint expectedCushion,
+        uint startCdp,
+        uint endCdp
+    ) internal {
+        for(uint i = 0; i < members.length; i++) {
+            uint totalCushion = balInfo.getTotalCushion(address(members[i]), address(pool), startCdp, endCdp);
+            assertEq(totalCushion, expectedCushion);
+        }
+    }
+
 
     function testDeposit() public {
         uint userBalance = vat.dai(address(member));
@@ -508,6 +552,8 @@ contract PoolTest is BCdpManagerTestBase {
             assertTrue(! isToppedUp);
         }
 
+        expectTotalCushionForMembers(members, 0);
+
         members[0].doTopup(pool, cdp);
 
         (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
@@ -519,6 +565,8 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(address(winners[1]), address(members[1]));
         assertEq(address(winners[2]), address(members[2]));
         assertEq(address(winners[3]), address(members[3]));
+
+        expectTotalCushionForMembers(members, 11 ether / 4); // 10 DAI + 1 extra
 
         // check balances
         assertEq(pool.rad(address(members[0])), uint(1000 ether * RAY) - uint(1+ dtab/4));
@@ -573,7 +621,14 @@ contract PoolTest is BCdpManagerTestBase {
             assertTrue(! shouldUntop);
         }
 
+        expectTotalCushionForMembers(members, 0);
+
         members[0].doTopup(pool, cdp);
+
+        expectTotalCushionForMember(members[0], 11 ether / 2);
+        expectTotalCushionForMember(members[1], 0);
+        expectTotalCushionForMember(members[2], 11 ether / 2);
+        expectTotalCushionForMember(members[3], 0);
 
         (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
         bite; //shh
@@ -759,7 +814,14 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(art, 110 ether);
         assertEq(uint(dart) * RAY, uint(dtab));
 
+        expectTotalCushionForMembers(members, 0);
+
         members[0].doTopup(pool, cdp);
+
+        expectTotalCushionForMember(members[0], 11 ether);
+        expectTotalCushionForMember(members[1], 0);
+        expectTotalCushionForMember(members[2], 0);
+        expectTotalCushionForMember(members[3], 0);
 
         (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
         bite; //shh
@@ -802,6 +864,8 @@ contract PoolTest is BCdpManagerTestBase {
         // do untop
         members[0].doUntop(pool, cdp);
 
+        expectTotalCushionForMembers(members, 0);
+
         (,,,,,,,bool shouldUntop,, bool isToppedUp) = info.getCushionInfoFlat(cdp,address(members[0]), 4);
         assertTrue(! shouldUntop);
         assertTrue(! isToppedUp);
@@ -829,6 +893,8 @@ contract PoolTest is BCdpManagerTestBase {
 
         // do untop
         members[0].doUntop(pool, cdp);
+
+        expectTotalCushionForMembers(members, 0);
 
         for(uint i = 0 ; i < 4 ; i++) {
             (,,,,,,, bool shouldUntop,, bool isToppedUp) = info.getCushionInfoFlat(cdp,address(members[i]), 4);
@@ -872,7 +938,11 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(availableBiteInDaiWei ,0);
         assertTrue(! canCallBiteNow);
 
+        expectTotalCushionForMembers(members, 0);
+
         members[0].doTopup(pool, cdp);
+
+        expectTotalCushionForMembers(members, 11 ether / 4);
 
         (availableBiteInArt, availableBiteInDaiWei, canCallBiteNow,) = info.getBiteInfoFlat(cdp, address(members[0]));
         assertEq(availableBiteInArt, 110 ether / 4);
@@ -910,6 +980,11 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(vat.gem("ETH", address(members[0])), expectedEth);
         assertEq(vat.gem("ETH", address(jar)), expectedEthInJar);
 
+        expectTotalCushionForMember(members[0], 11 ether / 4 - 1 ether);
+        expectTotalCushionForMember(members[1], 11 ether / 4);
+        expectTotalCushionForMember(members[2], 11 ether / 4);
+        expectTotalCushionForMember(members[3], 11 ether / 4);
+
         (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
         cdpArt; //shh
         winners; //shh
@@ -931,12 +1006,16 @@ contract PoolTest is BCdpManagerTestBase {
         members[2].doDeposit(pool, 900 ether * RAY);
         members[3].doDeposit(pool, 850 ether * RAY);
 
-        uint cdp = openCdp(1 ether, 104 ether); // 1 eth, 110 dai
+        uint cdp = openCdp(1 ether, 104 ether); // 1 eth, 104 dai
 
-        // set next price to 150, which means a cushion of 10 dai is expected
+        // set next price to 150, which means a cushion of 5 dai is expected
         osm.setPrice(150 * 1e18); // 1 ETH = 150 DAI
 
+        expectTotalCushionForMembers(members, 0);
+
         members[0].doTopup(pool, cdp);
+
+        expectTotalCushionForMembers(members, 5 ether / 4); // 4+1 DAI cushion
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
@@ -966,6 +1045,8 @@ contract PoolTest is BCdpManagerTestBase {
             assertEq(bite[i], 26 ether);
             assertEq(pool.rad(address(members[i])), (1000 ether - 50 ether * i - 26 ether) * RAY - 1);
 
+            expectTotalCushionForMember(members[i], 0);
+
             for(uint j = i ; j < 4 ; j++) {
                 (,,, ,,, canCallTopupNow, shouldCallUntop,, isToppedUp) = 
                     info.getCushionInfoFlat(cdp, address(members[j]), 4);
@@ -983,6 +1064,8 @@ contract PoolTest is BCdpManagerTestBase {
                 }
             }
         }
+
+        expectTotalCushionForMembers(members, 0);
 
         // jar should get 2% from 104 * 1.1 / 130
         assertEq(vat.gem("ETH", address(jar)), (104 ether * 11 / 1300)/50);
@@ -1043,7 +1126,7 @@ contract PoolTest is BCdpManagerTestBase {
         assertTrue(jarInkAfter - jarInkBefore <= expectedJar + 2 && expectedJar <= 2 + jarInkAfter - jarInkBefore);
     }
 
-    function testBiteInPartsThenUntop() public {
+    function testMultiCDPBiteInPartsThenUntop() public {
         timeReset();
 
         members[0].doDeposit(pool, 1000 ether * RAY);
@@ -1051,12 +1134,27 @@ contract PoolTest is BCdpManagerTestBase {
         members[2].doDeposit(pool, 900 ether * RAY);
         members[3].doDeposit(pool, 850 ether * RAY);
 
-        uint cdp = openCdp(1 ether, 104 ether); // 1 eth, 110 dai
+        uint cdp = openCdp(1 ether, 104 ether); // 1 eth, 104 dai
+        uint cdp2 = openCdp(1 ether, 104 ether); // 1 eth, 104 dai
 
-        // set next price to 150, which means a cushion of 10 dai is expected
+        // set next price to 150, which means a cushion of 5 dai is expected
         osm.setPrice(150 * 1e18); // 1 ETH = 150 DAI
 
+        expectTotalCushionForMembers(members, 0);
+
         members[3].doTopup(pool, cdp);
+
+        expectTotalCushionForMembers(members, 5 ether / 4);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, cdp, cdp);
+        expectTotalCushionForMembersInCdps(members, 0, cdp2, cdp2);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, cdp, cdp2);
+
+        members[0].doTopup(pool, cdp2);
+
+        expectTotalCushionForMembers(members, 5 ether * 2 / 4);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, cdp, cdp);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, cdp2, cdp2);
+        expectTotalCushionForMembersInCdps(members, 5 ether * 2/ 4, cdp, cdp2);
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
@@ -1071,22 +1169,52 @@ contract PoolTest is BCdpManagerTestBase {
         doBite(members[1], pool, cdp, 15 ether, false);
         // no change in cushionInfo, as member[1] bite partially 
         expectCushionInfoAllMembers(cdp, members, false, false, true);
+        uint perMemberCushion = 5 ether * 2 / 4;
+        uint expCushionMem0 = perMemberCushion;
+        // (5 DAI / 4) - (5 * 15/104) - 1 :: (-1 is for rounding error)
+        uint expCushionMem1 = perMemberCushion - (uint(5 ether) * uint(15 ether) / uint(104 ether)) - 1;
+        uint expCushionMem2 = perMemberCushion;
+        uint expCushionMem3 = perMemberCushion;
+        expectTotalCushionForMember(members[0], expCushionMem0);        
+        expectTotalCushionForMember(members[1], expCushionMem1);
+        expectTotalCushionForMember(members[2], expCushionMem2);
+        expectTotalCushionForMember(members[3], expCushionMem3);
 
         doBite(members[0], pool, cdp, 13 ether, false);
         // no change in cushionInfo, as member[0] bite partially 
         expectCushionInfoAllMembers(cdp, members, false, false, true);
+        expCushionMem0 = expCushionMem0 - (uint(5 ether) * uint(13 ether) / uint(104 ether));
+        expectTotalCushionForMember(members[0], expCushionMem0);        
+        expectTotalCushionForMember(members[1], expCushionMem1);
+        expectTotalCushionForMember(members[2], expCushionMem2);
+        expectTotalCushionForMember(members[3], expCushionMem3);
         
         doBite(members[2], pool, cdp, 17 ether, false);
         // no change in cushionInfo, as member[2] bite partially 
         expectCushionInfoAllMembers(cdp, members, false, false, true);
+        expCushionMem2 = expCushionMem2 - (uint(5 ether) * uint(17 ether) / uint(104 ether)) - 1;
+        expectTotalCushionForMember(members[0], expCushionMem0);
+        expectTotalCushionForMember(members[1], expCushionMem1);
+        expectTotalCushionForMember(members[2], expCushionMem2);
+        expectTotalCushionForMember(members[3], expCushionMem3);
 
         doBite(members[1], pool, cdp, 9 ether, false);
         // no change in cushionInfo, as member[1] bite partially 
         expectCushionInfoAllMembers(cdp, members, false, false, true);
+        expCushionMem1 = expCushionMem1 - (uint(5 ether) * uint(9 ether) / uint(104 ether)) - 1;
+        expectTotalCushionForMember(members[0], expCushionMem0);
+        expectTotalCushionForMember(members[1], expCushionMem1);
+        expectTotalCushionForMember(members[2], expCushionMem2);
+        expectTotalCushionForMember(members[3], expCushionMem3);
 
         doBite(members[0], pool, cdp, 10 ether, false);
         // no change in cushionInfo, as member[0] bite partially 
         expectCushionInfoAllMembers(cdp, members, false, false, true);
+        expCushionMem0 = expCushionMem0 - (uint(5 ether) * uint(10 ether) / uint(104 ether)) - 1;
+        expectTotalCushionForMember(members[0], expCushionMem0);
+        expectTotalCushionForMember(members[1], expCushionMem1);
+        expectTotalCushionForMember(members[2], expCushionMem2);
+        expectTotalCushionForMember(members[3], expCushionMem3);
 
         doBite(members[0], pool, cdp, 3 ether, false);
         // change in cushionInfo, as members[0] bite full
@@ -1095,6 +1223,11 @@ contract PoolTest is BCdpManagerTestBase {
         expectCushionInfo(cdp, address(members[1]), 4, false, false, true);
         expectCushionInfo(cdp, address(members[2]), 4, false, false, true);
         expectCushionInfo(cdp, address(members[3]), 4, false, false, true);
+        expCushionMem0 = expCushionMem0 - (uint(5 ether) * uint(3 ether) / uint(104 ether));
+        expectTotalCushionForMember(members[0], expCushionMem0);
+        expectTotalCushionForMember(members[1], expCushionMem1);
+        expectTotalCushionForMember(members[2], expCushionMem2);
+        expectTotalCushionForMember(members[3], expCushionMem3);
 
         assertTrue(LiquidationMachine(manager).bitten(cdp));
 
@@ -1113,6 +1246,145 @@ contract PoolTest is BCdpManagerTestBase {
         expectCushionInfo(cdp, address(members[3]), 4, false, true, true);
 
         members[3].doUntop(pool, cdp);
+
+        uint cdp2TopUpAmt = 5 ether / 4;
+        expectTotalCushionForMembers(members, cdp2TopUpAmt);
+        expectTotalCushionForMembersInCdps(members, 0, cdp, cdp);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, cdp2, cdp2);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, cdp, cdp2);
+
+        // after untop
+        expectCushionInfoAllMembers(cdp, members, false, false, false);
+
+        // check balances
+        // 0 consumed 26 ether
+        assertEq(radToWei(pool.rad(address(members[0]))), radToWei((1000 ether - 26 ether - cdp2TopUpAmt) * RAY - 1));
+        // 1 consumed 24 ether
+        assertEq(radToWei(pool.rad(address(members[1]))), radToWei((950 ether - 24 ether - cdp2TopUpAmt) * RAY - 1));
+        // 2 consumed 17 ether
+        assertEq(radToWei(pool.rad(address(members[2]))), radToWei((900 ether - 17 ether - cdp2TopUpAmt) * RAY - 1));
+        // 3 consumed 0 ether
+        assertEq(radToWei(pool.rad(address(members[3]))), radToWei((850 ether - 0 ether - cdp2TopUpAmt) * RAY - 1));
+
+        // check that cdp was reset
+        (uint cdpArt, uint cdpCushion, address[] memory winners, uint[] memory bite) = pool.getCdpData(cdp);
+        assertEq(cdpArt, 0);
+        assertEq(cdpCushion, 0);
+        assertEq(winners.length, 0);
+        assertEq(bite.length, 0);
+    }
+
+    function testBiteInPartsThenUntop() public {
+        timeReset();
+
+        members[0].doDeposit(pool, 1000 ether * RAY);
+        members[1].doDeposit(pool, 950 ether * RAY);
+        members[2].doDeposit(pool, 900 ether * RAY);
+        members[3].doDeposit(pool, 850 ether * RAY);
+
+        uint cdp = openCdp(1 ether, 104 ether); // 1 eth, 110 dai
+
+        // set next price to 150, which means a cushion of 5 dai is expected
+        osm.setPrice(150 * 1e18); // 1 ETH = 150 DAI
+
+        expectTotalCushionForMembers(members, 0);
+
+        members[3].doTopup(pool, cdp);
+
+        expectTotalCushionForMembers(members, 5 ether / 4);
+
+        pipETH.poke(bytes32(uint(150 * 1e18)));
+        spotter.poke("ETH");
+        pipETH.poke(bytes32(uint(130 * 1e18)));
+
+        this.file(address(cat), "ETH", "chop", WAD + WAD/10);
+        pool.setProfitParams(935, 1000); // 6.5% goes to jar
+
+        /* expectCushionInfoAllMembers(cdp, members, canCallTopupNow, shoulCallUntop, isToppedUp) */
+        expectCushionInfoAllMembers(cdp, members, false, false, true);
+        
+        doBite(members[1], pool, cdp, 15 ether, false);
+        // no change in cushionInfo, as member[1] bite partially 
+        expectCushionInfoAllMembers(cdp, members, false, false, true);
+        uint perMemberCushion = 5 ether / 4;
+        uint expCushionMem0 = perMemberCushion;
+        // (5 DAI / 4) - (5 * 15/104) - 1 :: (-1 is for rounding error)
+        uint expCushionMem1 = perMemberCushion - (uint(5 ether) * uint(15 ether) / uint(104 ether)) - 1;
+        uint expCushionMem2 = perMemberCushion;
+        uint expCushionMem3 = perMemberCushion;
+        expectTotalCushionForMember(members[0], expCushionMem0);        
+        expectTotalCushionForMember(members[1], expCushionMem1);
+        expectTotalCushionForMember(members[2], expCushionMem2);
+        expectTotalCushionForMember(members[3], expCushionMem3);
+
+        doBite(members[0], pool, cdp, 13 ether, false);
+        // no change in cushionInfo, as member[0] bite partially 
+        expectCushionInfoAllMembers(cdp, members, false, false, true);
+        expCushionMem0 = expCushionMem0 - (uint(5 ether) * uint(13 ether) / uint(104 ether));
+        expectTotalCushionForMember(members[0], expCushionMem0);        
+        expectTotalCushionForMember(members[1], expCushionMem1);
+        expectTotalCushionForMember(members[2], expCushionMem2);
+        expectTotalCushionForMember(members[3], expCushionMem3);
+        
+        doBite(members[2], pool, cdp, 17 ether, false);
+        // no change in cushionInfo, as member[2] bite partially 
+        expectCushionInfoAllMembers(cdp, members, false, false, true);
+        expCushionMem2 = expCushionMem2 - (uint(5 ether) * uint(17 ether) / uint(104 ether)) - 1;
+        expectTotalCushionForMember(members[0], expCushionMem0);
+        expectTotalCushionForMember(members[1], expCushionMem1);
+        expectTotalCushionForMember(members[2], expCushionMem2);
+        expectTotalCushionForMember(members[3], expCushionMem3);
+
+        doBite(members[1], pool, cdp, 9 ether, false);
+        // no change in cushionInfo, as member[1] bite partially 
+        expectCushionInfoAllMembers(cdp, members, false, false, true);
+        expCushionMem1 = expCushionMem1 - (uint(5 ether) * uint(9 ether) / uint(104 ether)) - 1;
+        expectTotalCushionForMember(members[0], expCushionMem0);
+        expectTotalCushionForMember(members[1], expCushionMem1);
+        expectTotalCushionForMember(members[2], expCushionMem2);
+        expectTotalCushionForMember(members[3], expCushionMem3);
+
+        doBite(members[0], pool, cdp, 10 ether, false);
+        // no change in cushionInfo, as member[0] bite partially 
+        expectCushionInfoAllMembers(cdp, members, false, false, true);
+        expCushionMem0 = expCushionMem0 - (uint(5 ether) * uint(10 ether) / uint(104 ether)) - 1;
+        expectTotalCushionForMember(members[0], expCushionMem0);
+        expectTotalCushionForMember(members[1], expCushionMem1);
+        expectTotalCushionForMember(members[2], expCushionMem2);
+        expectTotalCushionForMember(members[3], expCushionMem3);
+
+        doBite(members[0], pool, cdp, 3 ether, false);
+        // change in cushionInfo, as members[0] bite full
+        expectCushionInfo(cdp, address(members[0]), 4, false, false, false);
+        // but no change in members - 1,2,3
+        expectCushionInfo(cdp, address(members[1]), 4, false, false, true);
+        expectCushionInfo(cdp, address(members[2]), 4, false, false, true);
+        expectCushionInfo(cdp, address(members[3]), 4, false, false, true);
+        expCushionMem0 = expCushionMem0 - (uint(5 ether) * uint(3 ether) / uint(104 ether));
+        expectTotalCushionForMember(members[0], expCushionMem0);
+        expectTotalCushionForMember(members[1], expCushionMem1);
+        expectTotalCushionForMember(members[2], expCushionMem2);
+        expectTotalCushionForMember(members[3], expCushionMem3);
+
+        assertTrue(LiquidationMachine(manager).bitten(cdp));
+
+        // fast forward until no longer bitten
+        forwardTime(60*60 + 1);
+        assertTrue(! LiquidationMachine(manager).bitten(cdp));
+
+        // do dummy operation to untop
+        manager.frob(cdp, 0, 0);
+
+        // member[0] bitten full
+        expectCushionInfo(cdp, address(members[0]), 4, false, false, false);
+        // rest members bitten partially
+        expectCushionInfo(cdp, address(members[1]), 4, false, true, true);
+        expectCushionInfo(cdp, address(members[2]), 4, false, true, true);
+        expectCushionInfo(cdp, address(members[3]), 4, false, true, true);
+
+        members[3].doUntop(pool, cdp);
+
+        expectTotalCushionForMembers(members, 0);
 
         // after untop
         expectCushionInfoAllMembers(cdp, members, false, false, false);
@@ -1361,7 +1633,7 @@ contract PoolTest is BCdpManagerTestBase {
         members[2].doDeposit(pool, 900 ether * RAY);
         members[3].doDeposit(pool, 850 ether * RAY);
 
-        uint cdp = openCdp(1 ether, 104 ether); // 1 eth, 110 dai
+        uint cdp = openCdp(1 ether, 104 ether); // 1 eth, 104 dai
 
         setRateTo1p1(); // debt is 10% up per hour
 
@@ -1370,7 +1642,12 @@ contract PoolTest is BCdpManagerTestBase {
         osm.setH(60 * 60);
         osm.setZ(currTime - 31 minutes);
         
+        expectTotalCushionForMembers(members, 0);
+
         members[0].doTopup(pool, cdp);
+
+        (uint topupArt, uint cushion, , ) = pool.getCdpData(cdp);
+        expectTotalCushionForMembers(members, (topupArt / 4) * cushion / topupArt / RAY);
 
         forwardTime(31 minutes);
 
@@ -1417,7 +1694,10 @@ contract PoolTest is BCdpManagerTestBase {
             winners;//shh
             assertEq(bite[i], 26 ether);
             assertAlmostEq(pool.rad(address(members[i]))/RAY, 1000 ether - 50 ether * i - (26 ether * currRate)/RAY);
+            expectTotalCushionForMember(members[i], 0);
         }
+
+        expectTotalCushionForMembers(members, 0);
 
         // jar should get 2%
         assertEq(vat.gem("ETH", address(jar)), expectedInJar * 4);
@@ -1431,10 +1711,14 @@ contract PoolTest is BCdpManagerTestBase {
         members[2].doDeposit(pool, 900 ether * RAY);
         members[3].doDeposit(pool, 850 ether * RAY);
 
-        uint daiAmt = 104 ether + 111111111111111111; // 104.11 dai
+        uint oddAmt = 111111111111111111; // 0.11 DAI
+        uint daiAmt = 104 ether + oddAmt; // 104.11 dai
         uint cdp = openCdp(1 ether, daiAmt); // 1 eth
 
         osm.setPrice(150 * 1e18); // 1 ETH = 150 DAI
+
+        expectTotalCushionForMembers(members, 0);
+
         members[3].doTopup(pool, cdp);
 
         uint expectedAvailBite = daiAmt / members.length;
@@ -1444,9 +1728,13 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(pool.availBite(cdp, address(members[2])), expectedAvailBite);
         assertEq(pool.availBite(cdp, address(members[3])), expectedAvailBite);
 
+        expectTotalCushionForMember(members[0], (5 ether + oddAmt) / 4); // we don't expect dust (rounding err) in cushionTotal
+        expectTotalCushionForMember(members[1], (5 ether + oddAmt) / 4);
+        expectTotalCushionForMember(members[2], (5 ether + oddAmt) / 4);
+        expectTotalCushionForMember(members[3], (5 ether + oddAmt) / 4);
+
         assertEq(members.length * expectedAvailBite + expectedDust, daiAmt);
     }
-
 
     function testAvailBiteWithoutDust() public {
         timeReset();
@@ -1462,6 +1750,8 @@ contract PoolTest is BCdpManagerTestBase {
         // set next price to 150, which means a cushion of 10 dai is expected
         osm.setPrice(150 * 1e18); // 1 ETH = 150 DAI
 
+        expectTotalCushionForMembers(members, 0);
+
         members[3].doTopup(pool, cdp);
 
         uint expectedAvailBite = daiAmt / members.length;
@@ -1472,6 +1762,11 @@ contract PoolTest is BCdpManagerTestBase {
         assertEq(pool.availBite(cdp, address(members[1])), expectedAvailBite);
         assertEq(pool.availBite(cdp, address(members[2])), expectedAvailBite);
         assertEq(pool.availBite(cdp, address(members[3])), expectedAvailBite);
+
+        expectTotalCushionForMember(members[0], 5 ether / 4);
+        expectTotalCushionForMember(members[1], 5 ether / 4);
+        expectTotalCushionForMember(members[2], 5 ether / 4);
+        expectTotalCushionForMember(members[3], 5 ether / 4);
 
         assertEq(members.length * expectedAvailBite, daiAmt);
     }
