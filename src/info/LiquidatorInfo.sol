@@ -74,8 +74,6 @@ contract LiquidatorInfo is Math {
     SpotLike public spot;
     ChainlinkLike public chainlink;
 
-    uint constant RAY = 1e27;
-
     constructor(LiquidationMachine manager_, address chainlink_) public {
         manager = manager_;
         vat = VatLike(address(manager.vat()));
@@ -301,23 +299,24 @@ contract LiquidatorBalanceInfo is Math {
         uint poolDaiBalanceInWei;
     }
 
-    uint constant RAY = 1e27;
-
     function getTotalCushion(address me, address pool, uint startCdp, uint endCdp)
         public view returns(uint cushionInArt) {
 
         uint cushionInArt = 0;
         for(uint cdp = startCdp ; cdp <= endCdp ; cdp++) {
-            (uint topupArt,,address[] memory members, uint[] memory bite) = Pool(pool).getCdpData(cdp);
+            (uint topupArt, uint cushion, address[] memory members, uint[] memory bite) = Pool(pool).getCdpData(cdp);
             for(uint m = 0 ; topupArt > 0 && m < members.length ; m++) {
+                uint perUserArt = topupArt / members.length;
+                if(perUserArt <= bite[m]) continue;
                 if(members[m] == me) {
-                    cushionInArt = add(cushionInArt, sub(topupArt / members.length, bite[m]));
+                    uint refundArt = sub(perUserArt, bite[m]);
+                    cushionInArt = add(cushionInArt, mul(refundArt, cushion)/topupArt);
                     break;
                 }
             }
         }
 
-        return cushionInArt;
+        return cushionInArt / RAY;
     }
 
     function getTotalCushion(address me, address pool)
