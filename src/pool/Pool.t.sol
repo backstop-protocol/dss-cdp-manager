@@ -201,6 +201,29 @@ contract PoolTest is BCdpManagerTestBase {
         
     }
 
+    function expectTotalCushionForMemberInCdps(
+        FakeMember member,
+        uint expectedCushion,
+        uint startCdp,
+        uint endCdp
+    ) internal {
+        uint totalCushion = balInfo.getTotalCushion(address(member), address(pool), startCdp, endCdp);
+        assertEq(totalCushion, expectedCushion);   
+    }
+
+    function expectTotalCushionForMembersInCdps(
+        FakeMember[] memory members,
+        uint expectedCushion,
+        uint startCdp,
+        uint endCdp
+    ) internal {
+        for(uint i = 0; i < members.length; i++) {
+            uint totalCushion = balInfo.getTotalCushion(address(members[i]), address(pool), startCdp, endCdp);
+            assertEq(totalCushion, expectedCushion);
+        }
+    }
+
+
     function testDeposit() public {
         uint userBalance = vat.dai(address(member));
         assertEq(pool.rad(address(member)), 0);
@@ -1122,10 +1145,16 @@ contract PoolTest is BCdpManagerTestBase {
         members[3].doTopup(pool, cdp);
 
         expectTotalCushionForMembers(members, 5 ether / 4);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, 1, 1);
+        expectTotalCushionForMembersInCdps(members, 0, 2, 2);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, 1, 2);
 
         members[0].doTopup(pool, cdp2);
 
         expectTotalCushionForMembers(members, 5 ether * 2 / 4);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, 1, 1);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, 2, 2);
+        expectTotalCushionForMembersInCdps(members, 5 ether * 2/ 4, 1, 2);
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
