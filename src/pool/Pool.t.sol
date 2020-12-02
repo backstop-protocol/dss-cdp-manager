@@ -1145,16 +1145,16 @@ contract PoolTest is BCdpManagerTestBase {
         members[3].doTopup(pool, cdp);
 
         expectTotalCushionForMembers(members, 5 ether / 4);
-        expectTotalCushionForMembersInCdps(members, 5 ether / 4, 1, 1);
-        expectTotalCushionForMembersInCdps(members, 0, 2, 2);
-        expectTotalCushionForMembersInCdps(members, 5 ether / 4, 1, 2);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, cdp, cdp);
+        expectTotalCushionForMembersInCdps(members, 0, cdp2, cdp2);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, cdp, cdp2);
 
         members[0].doTopup(pool, cdp2);
 
         expectTotalCushionForMembers(members, 5 ether * 2 / 4);
-        expectTotalCushionForMembersInCdps(members, 5 ether / 4, 1, 1);
-        expectTotalCushionForMembersInCdps(members, 5 ether / 4, 2, 2);
-        expectTotalCushionForMembersInCdps(members, 5 ether * 2/ 4, 1, 2);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, cdp, cdp);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, cdp2, cdp2);
+        expectTotalCushionForMembersInCdps(members, 5 ether * 2/ 4, cdp, cdp2);
 
         pipETH.poke(bytes32(uint(150 * 1e18)));
         spotter.poke("ETH");
@@ -1249,6 +1249,9 @@ contract PoolTest is BCdpManagerTestBase {
 
         uint cdp2TopUpAmt = 5 ether / 4;
         expectTotalCushionForMembers(members, cdp2TopUpAmt);
+        expectTotalCushionForMembersInCdps(members, 0, cdp, cdp);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, cdp2, cdp2);
+        expectTotalCushionForMembersInCdps(members, 5 ether / 4, cdp, cdp2);
 
         // after untop
         expectCushionInfoAllMembers(cdp, members, false, false, false);
