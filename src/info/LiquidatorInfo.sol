@@ -299,6 +299,10 @@ contract LiquidatorBalanceInfo is Math {
         uint poolDaiBalanceInWei;
     }
 
+    function cdpi(address pool) public view returns (uint cdpi) {
+        cdpi = Pool(pool).man().cdpi();
+    }
+
     function getTotalCushion(address me, address pool, uint startCdp, uint endCdp)
         public view returns(uint cushionInArt) {
 

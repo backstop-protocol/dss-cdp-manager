@@ -346,4 +346,15 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
             assertEq(poolDaiBalanceInWei, 123);
         }
     }
+
+    function testBalanceInfoCdpi() public {
+        LiquidatorBalanceInfo balanceInfo = new LiquidatorBalanceInfo();
+        uint expectedCdpi = pool.man().cdpi();
+        assertEq(balanceInfo.cdpi(address(pool)), expectedCdpi);
+
+        openCdp(1 ether, 104 ether);
+        openCdp(1 ether, 104 ether);
+
+        assertEq(balanceInfo.cdpi(address(pool)), expectedCdpi + 2);
+    }
 }
