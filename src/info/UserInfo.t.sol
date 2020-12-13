@@ -153,6 +153,8 @@ contract UserInfoTest is BCdpManagerTestBase {
         assertEq(userInfo.cdp(), bCdp);
         assertTrue(userInfo.hasCdp());
         assertTrue(userInfo.bitten() == false);
+        assertEq(userInfo.unlockedEth(), 0);
+        assertTrue(! userInfo.expectedDebtMissmatch());
         assertEq(userInfo.ethDeposit(), 1 ether);
         assertEq(userInfo.daiDebt(), 20 ether);
         assertEq(userInfo.maxDaiDebt(), 200 ether); // 150% with spot price of $300
@@ -366,6 +368,50 @@ contract UserInfoTest is BCdpManagerTestBase {
         assertTrue(userInfo.cdp() > 0);
         assertTrue(userInfo.hasCdp());
         assertTrue(userInfo.bitten());
+    }
+
+    function testGetCdpInfoUnlockedEth() public {
+        timeReset();
+        FakeProxy proxy = registry.build();
+
+        uint cdp = openCdp(address(manager), 1 ether, 20 ether);
+
+        manager.give(cdp, address(proxy));
+
+        userInfo.setInfo(address(this), "ETH", manager, dsManager, getCdps, vatLike,
+                         spotterLike, registryLike, address(jar));
+
+        assertEq(userInfo.unlockedEth(), 0);
+
+        weth.mint(7);
+        weth.approve(address(ethJoin), 7);
+        ethJoin.join(DssCdpManager(manager).urns(cdp), 7);
+
+        userInfo.setInfo(address(this), "ETH", manager, dsManager, getCdps, vatLike,
+                         spotterLike, registryLike, address(jar));
+
+        assertTrue(userInfo.hasCdp());
+        assertEq(userInfo.unlockedEth(), 7);
+    }
+
+    function testGetDebtMissmatch() public {
+        timeReset();
+        FakeProxy proxy = registry.build();
+
+        uint cdp = openCdp(address(manager), 1 ether, 20 ether);
+
+        // move 1 dai to urn, and call frob
+        manager.move(cdp, address(this), 1e45);
+        vat.frob(manager.ilks(cdp),manager.urns(cdp),address(this),address(this),0,-1 ether);
+
+        manager.give(cdp, address(proxy));
+
+        userInfo.setInfo(address(this), "ETH", manager, dsManager, getCdps, vatLike,
+                         spotterLike, registryLike, address(jar));
+
+        assertTrue(userInfo.hasCdp());
+
+        assertTrue(userInfo.expectedDebtMissmatch());
     }
 
     function testGetCdpInfoMakerDao() public {

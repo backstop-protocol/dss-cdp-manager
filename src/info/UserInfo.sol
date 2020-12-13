@@ -2,6 +2,7 @@ pragma solidity ^0.5.12;
 pragma experimental ABIEncoderV2;
 
 import { BCdpManager } from "./../BCdpManager.sol";
+import { BCdpScore } from "./../BCdpScore.sol";
 import { LiquidationMachine } from "./../LiquidationMachine.sol";
 import { DssCdpManager } from "./../DssCdpManager.sol";
 import { GetCdps } from "./../GetCdps.sol";
@@ -55,7 +56,8 @@ contract UserInfoStorage {
         uint ethDeposit;
         uint daiDebt; // in wad - not in rad
         uint maxDaiDebt;
-        uint minEthDeposit;
+        uint unlockedEth;
+        bool expectedDebtMissmatch;
     }
 
     struct UserRatingInfo {
@@ -99,6 +101,8 @@ contract UserInfoStorage {
     uint public ethDeposit;
     uint public daiDebt; // in wad - not in rad
     uint public maxDaiDebt;
+    uint public unlockedEth;
+    bool public expectedDebtMissmatch;
 
     // CdpInfo of Mkr
     bool public makerdaoHasCdp;
@@ -131,6 +135,8 @@ contract UserInfoStorage {
         ethDeposit = state.bCdpInfo.ethDeposit;
         daiDebt = state.bCdpInfo.daiDebt;
         maxDaiDebt = state.bCdpInfo.maxDaiDebt;
+        unlockedEth = state.bCdpInfo.unlockedEth;
+        expectedDebtMissmatch = state.bCdpInfo.expectedDebtMissmatch;
 
         makerdaoHasCdp = state.makerdaoCdpInfo.hasCdp;
         makerdaoCdp = state.makerdaoCdpInfo.cdp;
@@ -231,6 +237,12 @@ contract UserInfo is Math, UserInfoStorage {
                 info.ethDeposit = ink;
                 info.daiDebt = artToDaiDebt(vat, ilk, art);
                 info.maxDaiDebt = calcMaxDebt(vat, ilk, ink);
+
+                info.unlockedEth = vat.gem(ilk, DssCdpManager(manager).urns(info.cdp));
+                bytes32 assetArtId = BCdpScore(address(BCdpManager(manager).score())).artAsset(ilk);
+                bytes32 userId = BCdpScore(address(BCdpManager(manager).score())).user(info.cdp);
+                uint artBalance = BCdpScore(address(BCdpManager(manager).score())).getCurrentBalance(userId, assetArtId);
+                info.expectedDebtMissmatch = (artBalance != art);
             }
         } else {
             // MakerDAO
