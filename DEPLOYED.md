@@ -1,0 +1,12 @@
+| Contract           | Address                                                                                                               |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| BCdpManager        | [0x3f30c2381CD8B917Dd96EB2f1A4F96D91324BBed](https://etherscan.io/address/0x3f30c2381CD8B917Dd96EB2f1A4F96D91324BBed) |
+| Pool               | [0x3aDD75647681d3BA7a4eCFAbf75D393936186a2c](https://etherscan.io/address/0x3aDD75647681d3BA7a4eCFAbf75D393936186a2c) |
+| BProxyActions      | [0x351626387B5bb5408f97F8fD6B2EC415Efc9E6a1](https://etherscan.io/address/0x351626387B5bb5408f97F8fD6B2EC415Efc9E6a1) |
+| BudConnector       | [0x2325aa20DEAa9770a978f1dc7C073589ffC79DC3](https://etherscan.io/address/0x2325aa20DEAa9770a978f1dc7C073589ffC79DC3) |
+| JarConnector       | [0xf10Bb2Ca172249C715E4F9eE7776b2C8C31aaA69](https://etherscan.io/address/0xf10Bb2Ca172249C715E4F9eE7776b2C8C31aaA69) |
+| Jar                | [0x3C36cCf03dAB88c1b1AC1eb9C3Fb5dB0b6763cFF](https://etherscan.io/address/0x3C36cCf03dAB88c1b1AC1eb9C3Fb5dB0b6763cFF) |
+| BCdpScore          | [0x46DFdffe7592eB565e702c4F8Fc631065B2344cf](https://etherscan.io/address/0x46DFdffe7592eB565e702c4F8Fc631065B2344cf) |
+| GovernanceExecutor | [0x09908cFE36E3941cbfa0C2b6fAC623F523dFF9FE](https://etherscan.io/address/0x09908cFE36E3941cbfa0C2b6fAC623F523dFF9FE) |
+| Migrate            | [0xA30b9677A14ED10ecEb6BA87af73A27F51A17C89](https://etherscan.io/address/0xA30b9677A14ED10ecEb6BA87af73A27F51A17C89) |
+| ChainLogConnector  | [0xBb043fFb54442E9fbDd720e666Fb7292b654A31B](https://etherscan.io/address/0xBb043fFb54442E9fbDd720e666Fb7292b654A31B) |
