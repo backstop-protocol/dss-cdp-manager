@@ -72,3 +72,10 @@ When `open` is executed, a new `urn` is created and a `cdpId` is assigned to it 
 ## B.Protocol Deployed Addresses
 
 [DEPLOYED](DEPLOYED.md)
+
+## Run Tests
+
+Requirement: [dapp](http://dapp.tools/) must be installed.
+
+$ dapp update
+$ dapp --use solc:0.5.16 test
