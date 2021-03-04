@@ -71,4 +71,4 @@ When `open` is executed, a new `urn` is created and a `cdpId` is assigned to it 
 
 ## B.Protocol Deployed Addresses
 
-[DEPLOYED](https://github.com/backstop-protocol/dss-cdp-manager/blob/bprotocol/DEPLOYED.md)
+[DEPLOYED](DEPLOYED.md)
