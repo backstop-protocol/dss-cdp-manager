@@ -5,16 +5,19 @@ import { GetCdps } from "./GetCdps.sol";
 import { BCdpManager } from "./BCdpManager.sol";
 import { LiquidationMachine } from "./LiquidationMachine.sol";
 import { Pool } from "./pool/Pool.sol";
-import { BCdpFullScore } from "./BCdpFullScore.sol";
+import { BCdpScore } from "./BCdpScore.sol";
 import { BCdpScoreLike } from "./BCdpScoreConnector.sol";
-import { Migrate } from "./governance/Migrate.sol";
 import { BudConnector, OSMLike } from "./bud/BudConnector.sol";
 import { ChainLogConnector } from "./ChainLogConnector.sol";
 
-contract Hevm {
-    function warp(uint256) public;
+interface Hevm {
+    function warp(uint256) external;
+    function roll(uint256) external;
+    function load(address,bytes32) external returns (bytes32);
+    function store(address,bytes32,bytes32) external;
+    function sign(uint256,bytes32) external returns (uint8,bytes32,bytes32);
+    function addr(uint256) external returns (address);
 }
-
 
 contract FakeUser {
 
@@ -109,26 +112,10 @@ contract FakeUser {
     }
 
     function doSlashScore(
-        BCdpFullScore score,
+        BCdpScore score,
         uint cdp
     ) public {
         score.slashScore(cdp);
-    }
-
-    function doVote(
-        Migrate migrate,
-        uint proposalId,
-        uint cdp
-    ) public {
-        migrate.vote(proposalId, cdp);
-    }
-
-    function doCancelVote(
-        Migrate migrate,
-        uint proposalId,
-        uint cdp
-    ) public {
-        migrate.cancelVote(proposalId, cdp);
     }
 }
 
@@ -187,7 +174,7 @@ contract BCdpManagerTestBase is DssDeployTestBase {
     FakeUser user;
     FakeUser liquidator;
     Pool pool;
-    BCdpFullScore score;
+    BCdpScore score;
     FakeUser jar;
     Hevm hevm;
     FakeOSM osm;
@@ -197,8 +184,9 @@ contract BCdpManagerTestBase is DssDeployTestBase {
 
     function setUp() public {
         super.setUp();
-
-        hevm = Hevm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+        address hevmAddress = address(bytes20(uint160(uint256(keccak256('hevm cheat code')))));
+        hevm = Hevm(hevmAddress);
+        hevm.roll(block.number + 7);
         hevm.warp(604411200);
 
         deploy();
@@ -213,7 +201,7 @@ contract BCdpManagerTestBase is DssDeployTestBase {
 
         pool = new Pool(address(vat), address(jar), address(spotter), address(jug), address(daiToUsdPriceFeed));
         bud.authorize(address(pool));
-        score = new BCdpFullScore();
+        score = new BCdpScore();
         ChainLog log = new ChainLog();
         ChainLogConnector cc = new ChainLogConnector(address(vat), address(log));
         log.setAddress("MCD_CAT", address(cat));
@@ -317,10 +305,11 @@ contract BCdpManagerTestBase is DssDeployTestBase {
         return _pool;
     }
 
-    function deployNewScoreContract() internal returns (BCdpFullScore) {
-        BCdpFullScore _score = new BCdpFullScore();
-        _score.spin();
+    function deployNewScoreContract() internal returns (BCdpScore) {
+        BCdpScore _score = new BCdpScore();
+        //_score.spin();
         _score.setManager(address(manager));
+        _score.setSpeed("ETH", 100e18);
         return _score;
     }
 
@@ -334,16 +323,14 @@ contract BCdpManagerTestBase is DssDeployTestBase {
         hevm.warp(currTime);
     }
 
-    function expectScore(uint cdp, bytes32 ilk, uint inkScore, uint artScore, uint slashScore) internal {
-        assertEq(score.getInkScore(cdp, ilk, currTime, score.start()), inkScore);
-        assertEq(score.getArtScore(cdp, ilk, currTime, score.start()), artScore);
-        assertEq(score.getSlashScore(cdp, ilk, currTime, score.start()), slashScore);
+    function expectScore(uint cdp, bytes32 ilk, uint artScore) internal {
+        //assertEq(score.getInkScore(cdp, ilk, currTime, score.start()), inkScore);
+        assertEq(score.getArtScore(cdp, ilk), artScore);
+        //assertEq(score.getSlashScore(cdp, ilk, currTime, score.start()), slashScore);
     }
 
-    function expectGlobalScore(bytes32 ilk, uint gInkScore, uint gArtScore, uint gSlashScore) internal {
-        assertEq(score.getInkGlobalScore(ilk, currTime, score.start()), gInkScore);
-        assertEq(score.getArtGlobalScore(ilk, currTime, score.start()), gArtScore);
-        assertEq(score.getSlashGlobalScore(ilk, currTime, score.start()), gSlashScore);
+    function expectGlobalScore(bytes32 ilk, uint gArtScore) internal {
+        assertEq(score.getArtGlobalScore(ilk), gArtScore);
     }
 }
 
@@ -1268,22 +1255,17 @@ contract BCdpManagerTest is BCdpManagerTestBase {
         manager.setScoreContract(BCdpScoreLike(address(score)));
 
         uint cdp = manager.open("ETH", address(this));
+        uint openBlock = block.number;
 
         reachTopup(cdp);
 
-        uint fwdTimeBy = 10;
-        forwardTime(fwdTimeBy);
+        uint fwdTimeBy = 100;
+        hevm.roll(openBlock + fwdTimeBy);
 
-        uint expectedInkScore = 1 ether * fwdTimeBy;
-        uint exoectedArtScore = 50 ether * fwdTimeBy;
-        expectScore(cdp, "ETH", expectedInkScore, exoectedArtScore, 0);
-
-        // user ink + liquidator ink
-        uint expectedInkGlobalScore = (1 ether + 1 ether) * fwdTimeBy;
-        // uint art + liquidator art
-        uint expectedArtGlobalScore = (50 ether + 51 ether) * fwdTimeBy;
-        expectGlobalScore("ETH", expectedInkGlobalScore, expectedArtGlobalScore, 0);
-
+        uint expectedArtScore = 100e18 * fwdTimeBy;
+        // 50 goes to user, 51 to the cdp of the liquidator
+        expectScore(cdp, "ETH", 50 * expectedArtScore / 101);
+        expectGlobalScore("ETH", expectedArtScore);
     }
 
     function testChangePoolAndScoreContracts() public {
@@ -1294,21 +1276,21 @@ contract BCdpManagerTest is BCdpManagerTestBase {
         manager.setPoolContract(address(pool));
         manager.setScoreContract(BCdpScoreLike(address(score)));
 
+        assertEq(address(pool), manager.pool());
+        assertEq(address(score), address(manager.score()));
+
         uint cdp = manager.open("ETH", address(this));
+        uint openBlock = block.number;
+
         reachTopup(cdp);
 
-        uint fwdTimeBy = 10;
-        forwardTime(fwdTimeBy);
+        uint fwdTimeBy = 100;
+        hevm.roll(block.number + fwdTimeBy);
 
-        uint expectedInkScore = 1 ether * fwdTimeBy;
-        uint exoectedArtScore = 50 ether * fwdTimeBy;
-        expectScore(cdp, "ETH", expectedInkScore, exoectedArtScore, 0);
-
-        // user ink + liquidator ink
-        uint expectedInkGlobalScore = (1 ether + 1 ether) * fwdTimeBy;
-        // uint art + liquidator art
-        uint expectedArtGlobalScore = (50 ether + 51 ether) * fwdTimeBy;
-        expectGlobalScore("ETH", expectedInkGlobalScore, expectedArtGlobalScore, 0);
+        uint expectedArtScore = 100e18 * fwdTimeBy;
+        // 50 goes to user, 51 to the cdp of the liquidator
+        expectScore(cdp, "ETH", 50 * expectedArtScore / 101);
+        expectGlobalScore("ETH", expectedArtScore);
 
     }
 

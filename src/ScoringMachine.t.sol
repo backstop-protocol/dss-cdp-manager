@@ -1,7 +1,7 @@
-pragma solidity ^0.5.12;
+/*pragma solidity ^0.5.12;
 
 import { BCdpManagerTestBase, Hevm, FakeUser } from "./BCdpManager.t.sol";
-import { BCdpFullScore } from "./BCdpFullScore.sol";
+import { BCdpScore } from "./BCdpScore.sol";
 import { BCdpScoreConnector } from "./BCdpScoreConnector.sol";
 import { LiquidationMachine } from "./LiquidationMachine.sol";
 import { ScoringMachine } from "../user-rating/contracts/score/ScoringMachine.sol";
@@ -10,7 +10,7 @@ import { ScoringMachine } from "../user-rating/contracts/score/ScoringMachine.so
 contract ScoringMachineTest is BCdpManagerTestBase {
     uint currTime;
 
-    BCdpFullScore score;
+    BCdpScore score;
     MockScoringMachine sm;
 
     function setUp() public {
@@ -18,8 +18,9 @@ contract ScoringMachineTest is BCdpManagerTestBase {
 
         currTime = now;
         hevm.warp(currTime);
+        hevm.roll(7);
 
-        score = BCdpFullScore(address(BCdpScoreConnector(manager).score()));
+        score = BCdpScore(address(BCdpScoreConnector(manager).score()));
         sm = new MockScoringMachine();
     }
 
@@ -623,7 +624,8 @@ contract MockScoringMachine is ScoringMachine {
     }
 
     function _getAssetScore(bytes32 user, bytes32 asset) public view returns (uint, uint, uint) {
-        AssetScore memory s = userScore[user][asset];
-        return (s.score, s.balance, s.last);
+        //AssetScore memory s = userScore[user][asset];
+        //return (s.score, s.balance, s.last);
     }
 }
+*/

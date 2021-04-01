@@ -314,7 +314,7 @@ contract UserInfoTest is BCdpManagerTestBase {
 
         score.transferOwnership(address(jarConnector));
         jarConnector.setManager(address(manager));
-        jarConnector.spin();
+        //jarConnector.spin();
 
         pool = deployNewPoolContract(address(jar));
         manager.setPoolContract(address(pool));
