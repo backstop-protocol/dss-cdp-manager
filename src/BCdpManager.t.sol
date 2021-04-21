@@ -9,6 +9,7 @@ import { BCdpFullScore } from "./BCdpFullScore.sol";
 import { BCdpScoreLike } from "./BCdpScoreConnector.sol";
 import { BudConnector, OSMLike } from "./bud/BudConnector.sol";
 import { ChainLogConnector } from "./ChainLogConnector.sol";
+import { GovernanceExecutor } from "./governance/GovernanceExecutor.sol";
 
 contract Hevm {
     function warp(uint256) public;
@@ -113,6 +114,27 @@ contract FakeUser {
     ) public {
         score.slashScore(cdp);
     }
+
+    function doSetPoolExec(
+        GovernanceExecutor exec,
+        address pool
+    ) public {
+        exec.setPool(pool);
+    }
+
+    function doSetScoreExec(
+        GovernanceExecutor exec,
+        address score
+    ) public {
+        exec.setScore(score);
+    }
+
+    function doTransferAdmin(
+        GovernanceExecutor exec,
+        address newAdmin
+    ) public {
+        exec.doTransferAdmin(newAdmin);
+    }    
 }
 
 contract FakeOSM {
