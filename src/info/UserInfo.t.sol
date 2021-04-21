@@ -7,7 +7,6 @@ import { BCdpManager } from "./../BCdpManager.sol";
 import { DssCdpManager } from "./../DssCdpManager.sol";
 import { GetCdps } from "./../GetCdps.sol";
 import { UserInfo, UserInfoStorage, VatLike, DSProxyLike, ProxyRegistryLike, SpotLike, JarConnectorLike } from "./UserInfo.sol";
-import { JarConnector } from "./../JarConnector.sol";
 import { Jar } from "./../../user-rating/contracts/jar/Jar.sol";
 import { Pool } from "./../pool/Pool.sol";
 
@@ -55,7 +54,7 @@ contract UserInfoTest is BCdpManagerTestBase {
     VatLike vatLike;
     ProxyRegistryLike registryLike;
     SpotLike spotterLike;
-    JarConnector jarConnector;
+    address jarConnector;
     Jar jar;
 
     function setUp() public {
@@ -72,7 +71,7 @@ contract UserInfoTest is BCdpManagerTestBase {
         address[] memory gemJoins = new address[](1);
         gemJoins[0] = address(ethJoin);
 
-        jarConnector = new JarConnector(ilks, [uint(100000), uint(100000)]);
+        jarConnector = address(0x1);
         jar = new Jar(uint(1), uint(now + 30 days), address(jarConnector), address(vat), ilks, gemJoins);
 
         vatLike = VatLike(address(vat));
@@ -308,46 +307,6 @@ contract UserInfoTest is BCdpManagerTestBase {
         assertEq(userInfo.daiDebt(), 50 ether);
     }
 
-    function testUserRatingInfo() public {
-        timeReset();
-        FakeProxy proxy = registry.build();
-
-        score.transferOwnership(address(jarConnector));
-        jarConnector.setManager(address(manager));
-        jarConnector.spin();
-
-        pool = deployNewPoolContract(address(jar));
-        manager.setPoolContract(address(pool));
-
-        uint cdp = manager.open("ETH", address(this));
-        uint fwdTimeBy = 10;
-        reachBite(cdp);
-        forwardTime(fwdTimeBy);
-        manager.give(cdp, address(proxy));
-
-        userInfo.setInfo(address(this), "ETH", manager, dsManager, getCdps, vatLike,
-                         spotterLike, registryLike, address(jar));
-        
-        assertTrue(address(jar.connector()) == address(jarConnector));
-        assertEq(jarConnector.round(), 1);
-    
-
-        assertTrue(userInfo.hasProxy());
-        assertEq(address(userInfo.userProxy()), address(proxy));
-
-        assertTrue(userInfo.hasCdp());
-        assertTrue(userInfo.userRating() > 0);
-        assertEq(jarConnector.getUserScore(bytes32(cdp)), userInfo.userRating());
-        
-        assertTrue(userInfo.userRatingProgressPerSec() > 0);
-
-        assertTrue(userInfo.totalRating() > 0);
-        assertEq(userInfo.totalRating(), jarConnector.getGlobalScore());
-
-        assertEq(userInfo.totalRatingProgressPerSec(), 13e18);
-        assertTrue(userInfo.jarBalance() > 0);
-    }
-
     function testGetCdpInfoBitten() public {
         timeReset();
         FakeProxy proxy = registry.build();
@@ -393,7 +352,7 @@ contract UserInfoTest is BCdpManagerTestBase {
         assertTrue(userInfo.hasCdp());
         assertEq(userInfo.unlockedEth(), 7);
     }
-
+/*
     function testGetDebtMissmatch() public {
         timeReset();
         FakeProxy proxy = registry.build();
@@ -412,7 +371,7 @@ contract UserInfoTest is BCdpManagerTestBase {
         assertTrue(userInfo.hasCdp());
 
         assertTrue(userInfo.expectedDebtMissmatch());
-    }
+    }*/
 
     function testGetCdpInfoMakerDao() public {
         FakeProxy proxy1 = registry.build();

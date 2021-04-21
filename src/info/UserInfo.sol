@@ -60,14 +60,6 @@ contract UserInfoStorage {
         bool expectedDebtMissmatch;
     }
 
-    struct UserRatingInfo {
-        uint userRating;
-        uint userRatingProgressPerSec;
-        uint totalRating;
-        uint totalRatingProgressPerSec;
-        uint jarBalance;
-    }
-
     struct MiscInfo {
         uint spotPrice;
         uint dustInWei;
@@ -84,7 +76,6 @@ contract UserInfoStorage {
         ProxyInfo proxyInfo;
         CdpInfo bCdpInfo;
         CdpInfo makerdaoCdpInfo;
-        UserRatingInfo userRatingInfo;
         MiscInfo miscInfo;
         UserWalletInfo userWalletInfo;
     }
@@ -110,12 +101,6 @@ contract UserInfoStorage {
     uint public makerdaoEthDeposit;
     uint public makerdaoDaiDebt; // in wad - not in rad
     uint public makerdaoMaxDaiDebt;
-
-    uint public userRating;
-    uint public userRatingProgressPerSec;
-    uint public totalRating;
-    uint public totalRatingProgressPerSec;
-    uint public jarBalance;
 
     uint public spotPrice;
     uint public dustInWei;
@@ -151,12 +136,6 @@ contract UserInfoStorage {
         ethBalance = state.userWalletInfo.ethBalance;
         daiBalance = state.userWalletInfo.daiBalance;
         daiAllowance = state.userWalletInfo.daiAllowance;
-
-        userRating = state.userRatingInfo.userRating;
-        userRatingProgressPerSec = state.userRatingInfo.userRatingProgressPerSec;
-        totalRating = state.userRatingInfo.totalRating;
-        totalRatingProgressPerSec = state.userRatingInfo.totalRatingProgressPerSec;
-        jarBalance = state.userRatingInfo.jarBalance;
 
         userState = state;
     }
@@ -239,10 +218,7 @@ contract UserInfo is Math, UserInfoStorage {
                 info.maxDaiDebt = calcMaxDebt(vat, ilk, ink);
 
                 info.unlockedEth = vat.gem(ilk, DssCdpManager(manager).urns(info.cdp));
-                bytes32 assetArtId = BCdpScore(address(BCdpManager(manager).score())).artAsset(ilk);
-                bytes32 userId = BCdpScore(address(BCdpManager(manager).score())).user(info.cdp);
-                uint artBalance = BCdpScore(address(BCdpManager(manager).score())).getCurrentBalance(userId, assetArtId);
-                info.expectedDebtMissmatch = (artBalance != art);
+                info.expectedDebtMissmatch = false;
             }
         } else {
             // MakerDAO
@@ -272,22 +248,6 @@ contract UserInfo is Math, UserInfoStorage {
             }
         }
         return 0;
-    }
-
-    function getUserRatingInfo(
-        bytes32 ilk,
-        address urn,
-        VatLike vat,
-        uint cdp,
-        address jar
-    ) public view returns(UserRatingInfo memory info) {
-        JarConnectorLike jarConnector = JarConnectorLike(address(JarLike(jar).connector()));
-        info.userRating = jarConnector.getUserScore(bytes32(cdp));
-        (, info.userRatingProgressPerSec) = vat.urns(ilk, urn);
-        info.totalRating = jarConnector.getGlobalScore();
-        info.totalRatingProgressPerSec = 13e18; // TODO
-        uint wethBalance = ERC20Like(weth).balanceOf(jar);
-        info.jarBalance = add(wethBalance, vat.gem(ilk, jar));
     }
 
     function setInfo(
@@ -325,8 +285,6 @@ contract UserInfo is Math, UserInfoStorage {
 
         uint cdp = state.bCdpInfo.cdp;
         address urn = manager.urns(cdp);
-
-        state.userRatingInfo = getUserRatingInfo(ilk, urn, vat, cdp, jar);
 
         set(state);
     }
