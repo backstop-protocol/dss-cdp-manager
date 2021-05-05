@@ -45,7 +45,6 @@ contract LiquidationMachineTest is BCdpManagerTestBase {
         cc.setCat();
         manager = new BCdpManager(address(vat), address(cc), address(fPool), address(bud), address(score));
         bud.authorize(address(manager));
-        score.setManager(address(manager));
         fPool.doHope(vat, address(manager));
         lm = LiquidationMachine(manager);
 
