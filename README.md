@@ -68,3 +68,15 @@ The CDP manager was created as a way to enable CDPs to be treated more like asse
 ## **Potential Issues around Chain Reorganization**
 
 When `open` is executed, a new `urn` is created and a `cdpId` is assigned to it for a specific `owner`. If the user uses `join` to add collateral to the `urn` immediately after the transaction is mined, there is a chance that a reorganization of the chain occurs. This would result in the user losing the ownership of that `cdpId`/`urn` pair, therefore losing their collateral. However, this issue can only arise when avoiding the use of the proxy functions ([https://github.com/makerdao/dss-proxy-actions](https://github.com/makerdao/dss-proxy-actions)) via a profile proxy ([https://github.com/dapphub/ds-proxy](https://github.com/dapphub/ds-proxy)) as the user will `open` the `cdp` and `join` collateral in the same transaction.
+
+## B.Protocol Deployed Addresses
+
+[DEPLOYED](DEPLOYED.md)
+
+## Run Tests
+
+Requirement: [dapp](http://dapp.tools/) must be installed.
+
+`$ dapp update`
+
+`$ dapp --use solc:0.5.16 test`
