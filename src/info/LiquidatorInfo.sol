@@ -295,7 +295,7 @@ contract LiquidatorBalanceInfo is Math {
         uint wethBalance;
         uint daiBalance;
         uint vatDaiBalanceInWei;
-        uint vatEthBalanceInWei;
+        uint[] vatEthBalanceInWei; // balance per ilk
         uint poolDaiBalanceInWei;
     }
 
@@ -331,7 +331,7 @@ contract LiquidatorBalanceInfo is Math {
         cushionInArt = getTotalCushion(me, pool, startCdp, endCdp);
     }
 
-    function getBalanceInfo(address me, address pool, address vat, bytes32 ilk, address dai, address weth)
+    function getBalanceInfo(address me, address pool, address vat, bytes32[] memory ilks, address dai, address weth)
         public view returns(BalanceInfo memory info) {
 
         info.blockNumber = block.number;
@@ -339,15 +339,19 @@ contract LiquidatorBalanceInfo is Math {
         info.wethBalance = ERC20Like(weth).balanceOf(me);
         info.daiBalance = ERC20Like(dai).balanceOf(me);
         info.vatDaiBalanceInWei = VatBalanceLike(vat).dai(me) / RAY;
-        info.vatEthBalanceInWei = VatBalanceLike(vat).gem(ilk, me);
+        info.vatEthBalanceInWei = new uint[](ilks.length);
+        for(uint i = 0 ; i < ilks.length ; i++) {
+            info.vatEthBalanceInWei[i] = VatBalanceLike(vat).gem(ilks[i], me);
+        }
+
         info.poolDaiBalanceInWei = Pool(pool).rad(me) / RAY;
     }
 
-    function getBalanceInfoFlat(address me, address pool, address vat, bytes32 ilk, address dai, address weth)
+    function getBalanceInfoFlat(address me, address pool, address vat, bytes32[] memory ilks, address dai, address weth)
         public view returns(uint blockNumber, uint ethBalance, uint wethBalance, uint daiBalance, uint vatDaiBalanceInWei,
-                            uint vatEthBalanceInWei, uint poolDaiBalanceInWei) {
+                            uint[] memory vatEthBalanceInWei, uint poolDaiBalanceInWei) {
 
-        BalanceInfo memory info = getBalanceInfo(me, pool, vat, ilk, dai, weth);
+        BalanceInfo memory info = getBalanceInfo(me, pool, vat, ilks, dai, weth);
         blockNumber = info.blockNumber;
         ethBalance = info.ethBalance;
         wethBalance = info.wethBalance;

@@ -333,16 +333,26 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
         }
 
         {
-            (uint blockNumber, uint ethBalance, uint wethBalance, uint daiBalance, uint vatDaiBalanceInWei,
-            uint vatEthBalanceInWei, uint poolDaiBalanceInWei) =
-            balanceInfo.getBalanceInfoFlat(me, address(fPool), address(vat), "ETH", address(fDai), address(fWeth));
+            bytes32[] memory ilks = new bytes32[](2);
+            ilks[0] = "ETH";
+            ilks[1] = "ETH-B";
 
-            assertEq(blockNumber, block.number);
-            assertEq(ethBalance, 7);
-            assertEq(wethBalance, 789);
-            assertEq(daiBalance, 567);
-            assertEq(vatDaiBalanceInWei, 3);
-            assertEq(vatEthBalanceInWei, 8);
+            uint[5] memory fiveParams;
+            uint[] memory vatEthBalanceInWei;
+            uint poolDaiBalanceInWei;
+
+            //(uint blockNumber, uint ethBalance, uint wethBalance, uint daiBalance, uint vatDaiBalanceInWei,
+            (fiveParams[0], fiveParams[1], fiveParams[2], fiveParams[3], fiveParams[4],
+            vatEthBalanceInWei, poolDaiBalanceInWei) =
+            balanceInfo.getBalanceInfoFlat(me, address(fPool), address(vat), ilks, address(fDai), address(fWeth));
+
+            assertEq(fiveParams[0], block.number);
+            assertEq(fiveParams[1], 7);
+            assertEq(fiveParams[2], 789);
+            assertEq(fiveParams[3], 567);
+            assertEq(fiveParams[4], 3);
+            assertEq(vatEthBalanceInWei[0], 8);
+            assertEq(vatEthBalanceInWei[1], 0);            
             assertEq(poolDaiBalanceInWei, 123);
         }
     }
