@@ -101,15 +101,17 @@ contract FakeDssDeployer {
     WETH public weth;
     FakeEnd public end;
     GemJoin public ethJoin;
+    bytes32 public ilk;
 
-    constructor() public {
+    constructor(bytes32 _ilk) public {
+        ilk = _ilk;
         vat = new Vat();
         vat.rely(msg.sender);
         //vat.deny(address(this));
 
         weth = new WETH();
         weth.mint(2**128);
-        ethJoin = new GemJoin(address(vat), "ETH-A", address(weth));
+        ethJoin = new GemJoin(address(vat), ilk, address(weth));
         vat.rely(address(ethJoin));
 
         dai = new Dai(0);
@@ -118,7 +120,7 @@ contract FakeDssDeployer {
 
         weth.approve(address(ethJoin), uint(-1));
         ethJoin.join(address(this), 1e18 * 1e6);
-        uint vatBalance = vat.gem("ETH-A",address(this));
+        uint vatBalance = vat.gem(ilk,address(this));
         assert(vatBalance == 1e18 * 1e6);
 
         pipETH = new PriceFeed();
@@ -131,31 +133,31 @@ contract FakeDssDeployer {
         osm = new FakeOSM();
         osm.setPrice(uint(300 * 10 ** 18));
         //pipETH.setOwner(msg.sender);
-        spotter.file("ETH-A", "pip", address(pipETH)); // Set pip
+        spotter.file(ilk, "pip", address(pipETH)); // Set pip
         spotter.file("par", 1000000000000000000000000000);
-        spotter.file("ETH-A", "mat", 1500000000000000000000000000);
+        spotter.file(ilk, "mat", 1500000000000000000000000000);
 
         vat.rely(address(spotter));
 
         end = new FakeEnd();
         //cat.rely(msg.sender);
-        //cat.file("ETH-A", "chop", 1130000000000000000000000000);
+        //cat.file(ilk, "chop", 1130000000000000000000000000);
 
         // set VAT cfg
-        vat.init("ETH-A");
+        vat.init(ilk);
         vat.file("Line", 568000000000000000000000000000000000000000000000000000);
-        vat.file("ETH-A", "spot", 260918853648800000000000000000);
-        vat.file("ETH-A", "line", 340000000000000000000000000000000000000000000000000000);
-        vat.file("ETH-A", "dust", 20000000000000000000000000000000000000000000000);
-        //vat.fold("ETH-A", address(0), 1020041883692153436559184034);
+        vat.file(ilk, "spot", 260918853648800000000000000000);
+        vat.file(ilk, "line", 340000000000000000000000000000000000000000000000000000);
+        vat.file(ilk, "dust", 20000000000000000000000000000000000000000000000);
+        //vat.fold(ilk, address(0), 1020041883692153436559184034);
 
         pipETH.poke(bytes32(uint(300 * 10 ** 18))); // Price 300 DAI = 1 ETH (precision 18)
-        spotter.poke("ETH-A");
+        spotter.poke(ilk);
 
         assert(vat.live() == 1);
 
 
-        vat.frob("ETH-A",address(this),address(this),address(this),1e18 * 1e6,100e6 * 1e18);
+        vat.frob(ilk,address(this),address(this),address(this),1e18 * 1e6,100e6 * 1e18);
 
         assert(vat.dai(address(this)) == 100e6 * 1e45);
 
@@ -167,31 +169,31 @@ contract FakeDssDeployer {
 
     function poke(BCdpManager man, address guy, int ink, int art) public returns(uint cdpUnsafeNext, uint cdpCustom){
         pipETH.poke(bytes32(uint(300 * 10 ** 18))); // Price 300 DAI = 1 ETH (precision 18)
-        spotter.poke("ETH-A");
+        spotter.poke(ilk);
         osm.setPrice(uint(300 * 10 ** 18));
         // send ton of gem to holder
-        vat.slip("ETH-A", msg.sender, 1e18 * 1e6);
-        vat.slip("ETH-A", address(this), 1e18 * 1e20);
+        vat.slip(ilk, msg.sender, 1e18 * 1e6);
+        vat.slip(ilk, address(this), 1e18 * 1e20);
 
         // get tons of dai
         dai.transfer(guy, 100e3 * 1e18);
 
-        cdpUnsafeNext = man.open("ETH-A", address(this));
-        vat.flux("ETH-A", address(this), man.urns(cdpUnsafeNext), 1e7 * 1 ether);
+        cdpUnsafeNext = man.open(ilk, address(this));
+        vat.flux(ilk, address(this), man.urns(cdpUnsafeNext), 1e7 * 1 ether);
         man.frob(cdpUnsafeNext, 1 ether, 100 ether);
 
-        cdpCustom = man.open("ETH-A", address(this));
-        vat.flux("ETH-A", address(this), man.urns(cdpCustom), 1e7 * 1 ether);
+        cdpCustom = man.open(ilk, address(this));
+        vat.flux(ilk, address(this), man.urns(cdpCustom), 1e7 * 1 ether);
         man.frob(cdpCustom, ink, art);
 
         pipETH.poke(bytes32(uint(151 ether)));
-        spotter.poke("ETH-A");
+        spotter.poke(ilk);
         osm.setPrice(uint(146 ether));
         pipETH.poke(bytes32(uint(146 ether)));
     }
 
     function updatePrice() public {
-        spotter.poke("ETH-A");
+        spotter.poke(ilk);
     }
 }
 
@@ -203,6 +205,7 @@ contract BDeployer {
     FakeDaiToUsdPriceFeed public dai2usdPriceFeed;
     LiquidatorInfo public info;
     BudConnector public budConnector;
+    bytes32 public ilk;
 
     uint public cdpUnsafeNext;
     uint public cdpCustom;
@@ -211,6 +214,7 @@ contract BDeployer {
 
     constructor(FakeDssDeployer d) public {
         deployer = d;
+        ilk = d.ilk();
         dai2usdPriceFeed = new FakeDaiToUsdPriceFeed();
         pool = new Pool(address(d.vat()), address(0x12345678), address(d.spotter()), address(new FakeJug()), address(dai2usdPriceFeed));
         score = BCdpScore(address(new FakeScore())); //new BCdpScore();
@@ -218,16 +222,16 @@ contract BDeployer {
         //score.setManager(address(man));
         pool.setCdpManager(man);
         budConnector = new BudConnector(OSMLike(address(d.osm())));
-        budConnector.setPip(address(d.pipETH()), "ETH-A");
+        budConnector.setPip(address(d.pipETH()), ilk);
         budConnector.authorize(address(pool));
-        pool.setOsm("ETH-A", address(budConnector));
+        pool.setOsm(ilk, address(budConnector));
         address[] memory members = new address[](3);
         member = new FakeMember();
         members[0] = address(member);
         members[1] = 0xe6bD52f813D76ff4192058C307FeAffe52aA49FC;
         members[2] = 0x534447900af78B74bB693470cfE7c7dFd54A974c;
         pool.setMembers(members);
-        pool.setIlk("ETH-A", true);
+        pool.setIlk(ilk, true);
         pool.setProfitParams(94, 100);
         pool.setOwner(msg.sender);
 
@@ -287,12 +291,24 @@ contract DeploymentTest is BCdpManagerTestBase {
     }
 
     function testGas() public {
-        FakeDssDeployer x = new FakeDssDeployer();
+        FakeDssDeployer x = new FakeDssDeployer("ETH-C");
         BDeployer b = new BDeployer(x);
     }
 
-    function testDeployer() public {
-        FakeDssDeployer ds = new FakeDssDeployer();
+    function testDeployerEthA() public {
+        testDeployerIlk("ETH-A");
+    }
+
+    function testDeployerEthB() public {
+        testDeployerIlk("ETH-B");
+    }
+
+    function testDeployerEthC() public {
+        testDeployerIlk("ETH-C");
+    }
+
+    function testDeployerIlk(bytes32 ilk) internal {
+        FakeDssDeployer ds = new FakeDssDeployer(ilk);
         BDeployer b = new BDeployer(ds);
 
         b.poke(1 ether, 20 ether);
@@ -306,7 +322,7 @@ contract DeploymentTest is BCdpManagerTestBase {
         uint cdp3 = b.cdpCustom();
 
         address urn = b.man().urns(cdp3);
-        (uint ink, uint art) = ds.vat().urns("ETH-A", urn);
+        (uint ink, uint art) = ds.vat().urns(ilk, urn);
         assertEq(ink, 2 ether);
         assertEq(art, 30 ether);
 
@@ -335,7 +351,7 @@ contract DeploymentTest is BCdpManagerTestBase {
         ds.updatePrice();
         m.doBite(p, cdp2, 100 ether, 0);
 
-        assertEq(v.gem("ETH-A", address(m)), 727534246575342465);
+        assertEq(v.gem(ilk, address(m)), 727534246575342465);
 
         assertEq(ds.weth().balanceOf(address(m)), 0);
         m.doExit(ds.ethJoin(), 727534246575342465);
@@ -343,7 +359,7 @@ contract DeploymentTest is BCdpManagerTestBase {
     }
 
     function testDeployerMultiplePokes() public {
-        FakeDssDeployer ds = new FakeDssDeployer();
+        FakeDssDeployer ds = new FakeDssDeployer("ETH-B");
         BDeployer b = new BDeployer(ds);
 
         uint cdp1; uint cdp2; uint cdp3; uint cdp4;
