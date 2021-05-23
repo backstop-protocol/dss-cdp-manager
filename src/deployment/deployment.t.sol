@@ -222,7 +222,12 @@ contract BDeployer {
         //score.setManager(address(man));
         pool.setCdpManager(man);
         budConnector = new BudConnector(OSMLike(address(d.osm())));
-        budConnector.setPip(address(d.pipETH()), ilk);
+        //budConnector.setPip(address(d.pipETH()), ilk);
+
+        budConnector.setPip(address(d.pipETH()), "ETH-A");
+        budConnector.setPip(address(d.pipETH()), "ETH-B");
+        budConnector.setPip(address(d.pipETH()), "ETH-C");
+
         budConnector.authorize(address(pool));
         pool.setOsm(ilk, address(budConnector));
         address[] memory members = new address[](3);
