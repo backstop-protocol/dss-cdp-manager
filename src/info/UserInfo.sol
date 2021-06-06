@@ -42,6 +42,11 @@ contract JarLike {
     function connector() external view returns (address);
 }
 
+contract GemJoinLike {
+    function dec() external view returns(uint);
+    function gem() external view returns(address);
+}
+
 // this is just something to help avoiding solidity quirks
 contract UserInfoStorage {
     struct ProxyInfo {
@@ -68,6 +73,7 @@ contract UserInfoStorage {
 
     struct UserWalletInfo {
         uint ethBalance;
+        uint gemBalance;
         uint daiBalance;
         uint daiAllowance;
     }
@@ -107,6 +113,7 @@ contract UserInfoStorage {
     uint public blockNumber;
 
     uint public ethBalance;
+    uint public gemBalance;    
     uint public daiBalance;
     uint public daiAllowance;
 
@@ -134,6 +141,7 @@ contract UserInfoStorage {
         blockNumber = state.miscInfo.blockNumber;
 
         ethBalance = state.userWalletInfo.ethBalance;
+        gemBalance = state.userWalletInfo.gemBalance;
         daiBalance = state.userWalletInfo.daiBalance;
         daiAllowance = state.userWalletInfo.daiAllowance;
 
@@ -203,8 +211,10 @@ contract UserInfo is Math, UserInfoStorage {
         bytes32 ilk,
         VatLike vat,
         GetCdps getCdp,
-        bool b
+        bool b,
+        address gemJoin
     ) public view returns(CdpInfo memory info) {
+        uint factor = 10 ** (18 - GemJoinLike(gemJoin).dec()); 
         if(b) {
             // B.Protocol
             info.cdp = getFirstCdp(getCdp, manager, guy, ilk);
@@ -213,7 +223,7 @@ contract UserInfo is Math, UserInfoStorage {
                 (uint ink, uint art) = vat.urns(ilk, DssCdpManager(manager).urns(info.cdp));
                 art = add(art, LiquidationMachine(manager).cushion(info.cdp));
                 info.bitten = LiquidationMachine(manager).bitten(info.cdp);
-                info.ethDeposit = ink;
+                info.ethDeposit = ink / factor;
                 info.daiDebt = artToDaiDebt(vat, ilk, art);
                 info.maxDaiDebt = calcMaxDebt(vat, ilk, ink);
 
@@ -226,7 +236,7 @@ contract UserInfo is Math, UserInfoStorage {
             info.hasCdp = info.cdp > 0;
             if(info.hasCdp) {
                 (uint ink, uint art) = vat.urns(ilk, DssCdpManager(manager).urns(info.cdp));
-                info.ethDeposit = ink;
+                info.ethDeposit = ink / factor;
                 info.daiDebt = artToDaiDebt(vat, ilk, art);
                 info.maxDaiDebt = calcMaxDebt(vat, ilk, ink);
             }
@@ -259,7 +269,8 @@ contract UserInfo is Math, UserInfoStorage {
         VatLike vat,
         SpotLike spot,
         ProxyRegistryLike registry,
-        address jar
+        address jar,
+        address gemJoin
     ) public {
         UserState memory state;
 
@@ -269,10 +280,10 @@ contract UserInfo is Math, UserInfoStorage {
         address guy = address(state.proxyInfo.userProxy);
 
         // fill bprotocol info
-        state.bCdpInfo = getCdpInfo(guy, address(manager), ilk, vat, getCdp, true);
+        state.bCdpInfo = getCdpInfo(guy, address(manager), ilk, vat, getCdp, true, gemJoin);
 
         // fill makerdao info
-        state.makerdaoCdpInfo = getCdpInfo(guy, address(makerDAOManager), ilk, vat, getCdp, false);
+        state.makerdaoCdpInfo = getCdpInfo(guy, address(makerDAOManager), ilk, vat, getCdp, false, gemJoin);
 
         state.miscInfo.spotPrice = calcSpotPrice(vat, spot, ilk);
         (,,,, uint dust) = vat.ilks(ilk);
@@ -280,6 +291,7 @@ contract UserInfo is Math, UserInfoStorage {
         state.miscInfo.blockNumber = block.number;
 
         state.userWalletInfo.ethBalance = user.balance;
+        state.userWalletInfo.gemBalance = ERC20Like(GemJoinLike(gemJoin).gem()).balanceOf(user);
         state.userWalletInfo.daiBalance = ERC20Like(dai).balanceOf(user);
         state.userWalletInfo.daiAllowance = ERC20Like(dai).allowance(user, guy);
 
@@ -298,9 +310,10 @@ contract UserInfo is Math, UserInfoStorage {
         VatLike vat,
         SpotLike spot,
         ProxyRegistryLike registry,
-        address jar
+        address jar,
+        address gemJoin
     ) public returns(UserState memory state) {
-        setInfo(user, ilk, manager, makerDAOManager, getCdp, vat, spot, registry, jar);
+        setInfo(user, ilk, manager, makerDAOManager, getCdp, vat, spot, registry, jar, gemJoin);
         return userState;
     }
 }
