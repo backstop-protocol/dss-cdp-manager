@@ -318,12 +318,14 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
         FakePool fPool = new FakePool();
         FakeToken fDai = new FakeToken();
         FakeToken fWeth = new FakeToken();
+        FakeToken fWbtc = new FakeToken();        
         LiquidatorBalanceInfo balanceInfo = new LiquidatorBalanceInfo();
 
         {
             fPool.setRad(me, 123 * 1e27);
             fDai.setBalance(me, 567);
             fWeth.setBalance(me, 789);
+            fWbtc.setBalance(me, 666);
 
             uint cdp = openCdp(1 ether, 50 ether);
             manager.move(cdp, me, 3e27);
@@ -337,13 +339,14 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
         }
 
         {
-            (uint blockNumber, uint ethBalance, uint wethBalance, uint daiBalance, uint vatDaiBalanceInWei,
+            (uint blockNumber, uint[3] memory balances, /* ethBalance, uint wethBalance, uint wbtcBalance,*/ uint daiBalance, uint vatDaiBalanceInWei,
             uint vatEthBalanceInWei, uint poolDaiBalanceInWei) =
-            balanceInfo.getBalanceInfoFlat(me, address(fPool), address(vat), "ETH", address(fDai), address(fWeth));
+            balanceInfo.getBalanceInfoFlat(me, address(fPool), address(vat), "ETH", address(fDai), address(fWeth), address(fWbtc));
 
             assertEq(blockNumber, block.number);
-            assertEq(ethBalance, 7);
-            assertEq(wethBalance, 789);
+            assertEq(balances[0], 7);
+            assertEq(balances[1], 789);
+            assertEq(balances[2], 666e10);            
             assertEq(daiBalance, 567);
             assertEq(vatDaiBalanceInWei, 3);
             assertEq(vatEthBalanceInWei, 8);

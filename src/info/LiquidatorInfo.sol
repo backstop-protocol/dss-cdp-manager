@@ -305,6 +305,7 @@ contract LiquidatorBalanceInfo is Math {
         uint blockNumber;
         uint ethBalance;
         uint wethBalance;
+        uint wbtcBalance;
         uint daiBalance;
         uint vatDaiBalanceInWei;
         uint vatEthBalanceInWei;
@@ -343,26 +344,28 @@ contract LiquidatorBalanceInfo is Math {
         cushionInArt = getTotalCushion(me, pool, startCdp, endCdp);
     }
 
-    function getBalanceInfo(address me, address pool, address vat, bytes32 ilk, address dai, address weth)
+    function getBalanceInfo(address me, address pool, address vat, bytes32 ilk, address dai, address weth, address wbtc)
         public view returns(BalanceInfo memory info) {
 
         info.blockNumber = block.number;
         info.ethBalance = me.balance;
         info.wethBalance = ERC20Like(weth).balanceOf(me);
+        info.wbtcBalance = ERC20Like(wbtc).balanceOf(me) * 10 ** 10;
         info.daiBalance = ERC20Like(dai).balanceOf(me);
         info.vatDaiBalanceInWei = VatBalanceLike(vat).dai(me) / RAY;
         info.vatEthBalanceInWei = VatBalanceLike(vat).gem(ilk, me);
         info.poolDaiBalanceInWei = Pool(pool).rad(me) / RAY;
     }
 
-    function getBalanceInfoFlat(address me, address pool, address vat, bytes32 ilk, address dai, address weth)
-        public view returns(uint blockNumber, uint ethBalance, uint wethBalance, uint daiBalance, uint vatDaiBalanceInWei,
+    function getBalanceInfoFlat(address me, address pool, address vat, bytes32 ilk, address dai, address weth, address wbtc)
+        public view returns(uint blockNumber, uint[3] memory balances,/* ethBalance, uint wethBalance, uint wbtcBalance,*/ uint daiBalance, uint vatDaiBalanceInWei,
                             uint vatEthBalanceInWei, uint poolDaiBalanceInWei) {
 
-        BalanceInfo memory info = getBalanceInfo(me, pool, vat, ilk, dai, weth);
+        BalanceInfo memory info = getBalanceInfo(me, pool, vat, ilk, dai, weth, wbtc);
         blockNumber = info.blockNumber;
-        ethBalance = info.ethBalance;
-        wethBalance = info.wethBalance;
+        balances[0] = info.ethBalance;
+        balances[1] = info.wethBalance;
+        balances[2] = info.wbtcBalance;
         daiBalance = info.daiBalance;
         vatDaiBalanceInWei = info.vatDaiBalanceInWei;
         vatEthBalanceInWei = info.vatEthBalanceInWei;
