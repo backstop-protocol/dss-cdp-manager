@@ -231,7 +231,7 @@ contract BDeployer {
         pool.setProfitParams(94, 100);
         pool.setOwner(msg.sender);
 
-        info = new LiquidatorInfo(LiquidationMachine(man), address(new FakeChainLink()));
+        info = new LiquidatorInfo(LiquidationMachine(man), address(new FakeChainLink()), address(new FakeChainLink()));
     }
 
     function poke(int ink, int art) public {

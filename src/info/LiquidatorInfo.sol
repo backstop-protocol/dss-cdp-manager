@@ -15,7 +15,7 @@ contract SpotLike {
 }
 
 contract ChainlinkLike {
-    function latestAnswer() external view returns (int256);
+    function latestAnswer(bytes32 ilk) external view returns (int256);
 }
 
 contract LiquidatorInfo is Math {
@@ -73,13 +73,15 @@ contract LiquidatorInfo is Math {
     Pool public pool;
     SpotLike public spot;
     ChainlinkLike public chainlink;
+    ChainlinkLike public makerOracle;    
 
-    constructor(LiquidationMachine manager_, address chainlink_) public {
+    constructor(LiquidationMachine manager_, address makerOracle_, address chainlink_) public {
         manager = manager_;
         vat = VatLike(address(manager.vat()));
         pool = Pool(manager.pool());
         spot = SpotLike(address(pool.spot()));
         chainlink = ChainlinkLike(chainlink_);
+        makerOracle = ChainlinkLike(makerOracle_);
     }
 
     function getExpectedEthReturn(bytes32 collateralType, uint daiDebt, uint currentPriceFeedValue) public returns(uint) {
@@ -95,7 +97,7 @@ contract LiquidatorInfo is Math {
         return mul(mul(biteIlk, shrn), d2uPrice) / mul(shrd, uint(1 ether));
     }
 
-    function getVaultInfo(uint cdp, uint currentPriceFeedValue) public returns(VaultInfo memory info) {
+    function getVaultInfo(uint cdp) public returns(VaultInfo memory info) {
         address urn = manager.urns(cdp);
         info.collateralType = manager.ilks(cdp);
 
@@ -109,11 +111,13 @@ contract LiquidatorInfo is Math {
         (, uint mat) = spot.ilks(info.collateralType);
         info.liquidationPrice = mul(info.debtInDaiWei, mat) / mul(info.collateralInWei, RAY / 1e18);
 
+        uint currentPriceFeedValue = uint(makerOracle.latestAnswer(info.collateralType));
+
         if(currentPriceFeedValue > 0) {
             info.expectedEthReturnWithCurrentPrice = getExpectedEthReturn(info.collateralType, info.debtInDaiWei, currentPriceFeedValue);
         }
 
-        int chainlinkPrice = chainlink.latestAnswer();
+        int chainlinkPrice = chainlink.latestAnswer(info.collateralType);
         uint chainlinkEthReturn = 0;
         if(chainlinkPrice > 0) {
             chainlinkEthReturn = mul(info.debtInDaiWei, uint(chainlinkPrice)) / 1 ether;
@@ -208,40 +212,48 @@ contract LiquidatorInfo is Math {
         }
     }
 
-    function getCdpData(uint startCdp, uint endCdp, address me, uint currentPriceFeedValue) public returns(CdpInfo[] memory info) {
+    function getCdpData(uint startCdp, uint endCdp, address me) public returns(CdpInfo[] memory info) {
         uint numMembers = getNumMembers();
         info = new CdpInfo[](add(sub(endCdp, startCdp), uint(1)));
         for(uint cdp = startCdp ; cdp <= endCdp ; cdp++) {
             uint index = cdp - startCdp;
             info[index].cdp = cdp;
             info[index].blockNumber = block.number;
-            info[index].vault = getVaultInfo(cdp, currentPriceFeedValue);
+            info[index].vault = getVaultInfo(cdp);
             info[index].cushion = getCushionInfo(cdp, me, numMembers);
             info[index].bite = getBiteInfo(cdp, me);
         }
     }
 
-    function getCdpData(uint[] calldata cdps, address me, uint currentPriceFeedValue) external returns(CdpInfo[] memory info) {
+    function getCdpData(uint startCdp, uint endCdp, address me, uint) external returns(CdpInfo[] memory info) {
+        return getCdpData(startCdp, endCdp, me);
+    }
+
+    function getCdpData(uint[] memory cdps, address me) public returns(CdpInfo[] memory info) {
         uint numMembers = getNumMembers();
         info = new CdpInfo[](cdps.length);
         for(uint index = 0 ; index < cdps.length ; index++) {
             uint cdp = cdps[index];
             info[index].cdp = cdp;
             info[index].blockNumber = block.number;
-            info[index].vault = getVaultInfo(cdp, currentPriceFeedValue);
+            info[index].vault = getVaultInfo(cdp);
             info[index].cushion = getCushionInfo(cdp, me, numMembers);
             info[index].bite = getBiteInfo(cdp, me);
         }
     }
+
+    function getCdpData(uint[] calldata cdps, address me, uint) external returns(CdpInfo[] memory info) {
+        return getCdpData(cdps, me);
+    }    
 }
 
 contract FlatLiquidatorInfo is LiquidatorInfo {
-    constructor(LiquidationMachine manager_, address chainlink_) public LiquidatorInfo(manager_, chainlink_) {}
+    constructor(LiquidationMachine manager_, address makerOracle_, address chainlink_) public LiquidatorInfo(manager_, makerOracle_, chainlink_) {}
 
-    function getVaultInfoFlat(uint cdp, uint currentPriceFeedValue) external
+    function getVaultInfoFlat(uint cdp) external
         returns(bytes32 collateralType, uint collateralInWei, uint debtInDaiWei, uint liquidationPrice,
                 uint expectedEthReturnWithCurrentPrice, bool expectedEthReturnBetterThanChainlinkPrice) {
-        VaultInfo memory info = getVaultInfo(cdp, currentPriceFeedValue);
+        VaultInfo memory info = getVaultInfo(cdp);
         collateralType = info.collateralType;
         collateralInWei = info.collateralInWei;
         debtInDaiWei = info.debtInDaiWei;
