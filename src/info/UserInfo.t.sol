@@ -38,6 +38,10 @@ contract FakeERC20 {
     function balanceOf(address u) public pure returns(uint) {
         return 123;
     }
+
+    function allowance(address guy, address spender) public pure returns(uint) {
+        return 456;
+    }
 }
 
 contract FakeGemJoin {
@@ -136,7 +140,8 @@ contract UserInfoTest is BCdpManagerTestBase {
         userInfo.setInfo(address(this), "ETH", manager, dsManager, getCdps, vatLike,
                          spotterLike, registryLike, address(jar), address(new FakeGemJoin()));
 
-        assertEq(123, userInfo.gemBalance());        
+        assertEq(123, userInfo.gemBalance());
+        assertEq(456, userInfo.gemAllowance());    
     }
 
     function testDaiBalanceAndDustInfo() public {

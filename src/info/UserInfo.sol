@@ -75,6 +75,7 @@ contract UserInfoStorage {
     struct UserWalletInfo {
         uint ethBalance;
         uint gemBalance;
+        uint gemAllowance;
         uint daiBalance;
         uint daiAllowance;
     }
@@ -115,7 +116,8 @@ contract UserInfoStorage {
     uint public gemDecimals;
 
     uint public ethBalance;
-    uint public gemBalance;    
+    uint public gemBalance;
+    uint public gemAllowance; 
     uint public daiBalance;
     uint public daiAllowance;
 
@@ -145,6 +147,7 @@ contract UserInfoStorage {
 
         ethBalance = state.userWalletInfo.ethBalance;
         gemBalance = state.userWalletInfo.gemBalance;
+        gemAllowance = state.userWalletInfo.gemAllowance;
         daiBalance = state.userWalletInfo.daiBalance;
         daiAllowance = state.userWalletInfo.daiAllowance;
 
@@ -296,6 +299,7 @@ contract UserInfo is Math, UserInfoStorage {
 
         state.userWalletInfo.ethBalance = user.balance;
         state.userWalletInfo.gemBalance = ERC20Like(GemJoinLike(gemJoin).gem()).balanceOf(user);
+        state.userWalletInfo.gemAllowance = ERC20Like(GemJoinLike(gemJoin).gem()).allowance(user, guy);        
         state.userWalletInfo.daiBalance = ERC20Like(dai).balanceOf(user);
         state.userWalletInfo.daiAllowance = ERC20Like(dai).allowance(user, guy);
 
