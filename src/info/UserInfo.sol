@@ -69,6 +69,7 @@ contract UserInfoStorage {
         uint spotPrice;
         uint dustInWei;
         uint blockNumber;
+        uint gemDecimals;
     }
 
     struct UserWalletInfo {
@@ -111,6 +112,7 @@ contract UserInfoStorage {
     uint public spotPrice;
     uint public dustInWei;
     uint public blockNumber;
+    uint public gemDecimals;
 
     uint public ethBalance;
     uint public gemBalance;    
@@ -139,6 +141,7 @@ contract UserInfoStorage {
         spotPrice = state.miscInfo.spotPrice;
         dustInWei = state.miscInfo.dustInWei;
         blockNumber = state.miscInfo.blockNumber;
+        gemDecimals = state.miscInfo.gemDecimals;
 
         ethBalance = state.userWalletInfo.ethBalance;
         gemBalance = state.userWalletInfo.gemBalance;
@@ -289,6 +292,7 @@ contract UserInfo is Math, UserInfoStorage {
         (,,,, uint dust) = vat.ilks(ilk);
         state.miscInfo.dustInWei = dust / ONE;
         state.miscInfo.blockNumber = block.number;
+        state.miscInfo.gemDecimals = GemJoinLike(gemJoin).dec();
 
         state.userWalletInfo.ethBalance = user.balance;
         state.userWalletInfo.gemBalance = ERC20Like(GemJoinLike(gemJoin).gem()).balanceOf(user);

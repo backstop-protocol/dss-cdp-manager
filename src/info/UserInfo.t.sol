@@ -256,6 +256,8 @@ contract UserInfoTest is BCdpManagerTestBase {
         // -1 is a rounding error
         assertEq(userInfo.makerdaoMaxDaiDebt(), 400 ether - 1); // 150% with spot price of $300
         assertEq(userInfo.spotPrice(), 300e18);
+
+        assertEq(userInfo.gemDecimals(), 18);        
     }
 
     function testBothHaveCdpWithGem() public {
@@ -276,6 +278,8 @@ contract UserInfoTest is BCdpManagerTestBase {
         assertEq(userInfo.makerdaoCdp(), mCdp);
         assertTrue(userInfo.makerdaoHasCdp());
         assertEq(userInfo.makerdaoEthDeposit(), 2 ether / 10**10);
+
+        assertEq(userInfo.gemDecimals(), 8);        
     }    
 
     function testBothHaveCdpWithRateAndDifferentPrice() public {
