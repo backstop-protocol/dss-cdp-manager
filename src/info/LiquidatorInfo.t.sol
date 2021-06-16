@@ -35,7 +35,11 @@ contract FakeMember is FakeUser {
 }
 
 contract FakeChainLink {
-    function latestAnswer() external pure returns(int) { return 2549152947092904; }
+    function latestAnswer(bytes32 ilk) external pure returns(int) { return 2549152947092904; }
+}
+
+contract FakeOracle {
+    function latestAnswer(bytes32 ilk) external pure returns(int) { return 100e18; }
 }
 
 contract FakePool {
@@ -87,7 +91,7 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
 
         member = members[0];
 
-        info = new FlatLiquidatorInfo(LiquidationMachine(address(manager)), address(new FakeChainLink()));
+        info = new FlatLiquidatorInfo(LiquidationMachine(address(manager)), address(new FakeOracle()),address(new FakeChainLink()));
 
         assertEq(address(LiquidationMachine(address(manager)).pool()),address(pool));
 
@@ -204,7 +208,7 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
 
     function testVaultInfo() public {
         uint cdp = openCdp(1 ether, 50 ether);
-        (bytes32 collateralType, uint collateralInWei, uint debtInDaiWei, uint liquidationPrice, uint ethReturn,) = info.getVaultInfoFlat(cdp, 100e18);
+        (bytes32 collateralType, uint collateralInWei, uint debtInDaiWei, uint liquidationPrice, uint ethReturn,) = info.getVaultInfoFlat(cdp);
 
         assertEq(collateralType, bytes32("ETH"));
         assertEq(collateralInWei, 1 ether);
@@ -219,7 +223,7 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
 
         assertTrue(newDaiDebt > 50 ether);
 
-        (collateralType, collateralInWei, debtInDaiWei, liquidationPrice, ethReturn,) = info.getVaultInfoFlat(cdp, 100e18);
+        (collateralType, collateralInWei, debtInDaiWei, liquidationPrice, ethReturn,) = info.getVaultInfoFlat(cdp);
         assertEq(collateralType, bytes32("ETH"));
         assertEq(collateralInWei, 1 ether);
         assertEq(debtInDaiWei, newDaiDebt);
@@ -229,7 +233,7 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
 
     function testVaultInfoForEmptyCdp() public {
         uint cdp = openCdp(0, 0);
-        (bytes32 collateralType, uint collateralInWei, uint debtInDaiWei, uint liquidationPrice, uint ethReturn, bool betterThanChainlink) = info.getVaultInfoFlat(cdp, 100e18);
+        (bytes32 collateralType, uint collateralInWei, uint debtInDaiWei, uint liquidationPrice, uint ethReturn, bool betterThanChainlink) = info.getVaultInfoFlat(cdp);
 
         assertEq(collateralType, bytes32("ETH"));
         assertEq(collateralInWei, 0);
@@ -314,12 +318,14 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
         FakePool fPool = new FakePool();
         FakeToken fDai = new FakeToken();
         FakeToken fWeth = new FakeToken();
+        FakeToken fWbtc = new FakeToken();        
         LiquidatorBalanceInfo balanceInfo = new LiquidatorBalanceInfo();
 
         {
             fPool.setRad(me, 123 * 1e27);
             fDai.setBalance(me, 567);
             fWeth.setBalance(me, 789);
+            fWbtc.setBalance(me, 666);
 
             uint cdp = openCdp(1 ether, 50 ether);
             manager.move(cdp, me, 3e27);
@@ -333,13 +339,14 @@ contract LiquidatorInfoTest is BCdpManagerTestBase, Math {
         }
 
         {
-            (uint blockNumber, uint ethBalance, uint wethBalance, uint daiBalance, uint vatDaiBalanceInWei,
+            (uint blockNumber, uint[3] memory balances, /* ethBalance, uint wethBalance, uint wbtcBalance,*/ uint daiBalance, uint vatDaiBalanceInWei,
             uint vatEthBalanceInWei, uint poolDaiBalanceInWei) =
-            balanceInfo.getBalanceInfoFlat(me, address(fPool), address(vat), "ETH", address(fDai), address(fWeth));
+            balanceInfo.getBalanceInfoFlat(me, address(fPool), address(vat), "ETH", address(fDai), address(fWeth), address(fWbtc));
 
             assertEq(blockNumber, block.number);
-            assertEq(ethBalance, 7);
-            assertEq(wethBalance, 789);
+            assertEq(balances[0], 7);
+            assertEq(balances[1], 789);
+            assertEq(balances[2], 666e10);            
             assertEq(daiBalance, 567);
             assertEq(vatDaiBalanceInWei, 3);
             assertEq(vatEthBalanceInWei, 8);
